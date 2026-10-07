@@ -80,7 +80,7 @@ Pantallas (Compose) → ViewModel → Repository ─┬→ Room      (fuente de 
 
 | RF | Descripción | Implementación |
 |---|---|---|
-| RF06 | Registrar un envío indicando peso y ruta | `PantallaPrincipal()` en `MainActivity.kt` (2 campos + **Guardar**) → `EnvioViewModel.registrar()` → `EnvioRepository.registrar()` |
+| RF06 | Registrar un envío indicando peso y ruta | `PantallaPrincipal()` en `ListScreen.kt` (2 campos + **Guardar**) → `EnvioViewModel.registrar()` → `EnvioRepository.registrar()` |
 | RF07 | Generar el número de guía al insertar | `EnvioRepository.registrar()` genera la guía con `NumeroGuia.generar()` (formato `RLP-AA-NNNNNN-D`). Si el servidor ya tiene esa guía, asigna otra y la app la actualiza |
 | RF08 | Calcular el costo (`pesoKg × tarifaPorKg`) | `CatalogoRutas.calcularCosto()` en `RutaTarifa.kt`. La API lo vuelve a calcular con su tabla `rutas` |
 | RF09 | Buscar un envío por número de guía | `EnvioDao.buscarPorGuia()`: ignora guiones, espacios y mayúsculas. Funciona sin conexión porque busca en Room |
@@ -298,6 +298,8 @@ com.example.rutalogcliente/
 │   ├── navigation/AppNavigation.kt
 │   ├── screens/              SplashScreen, LoginScreen, HomeScreen, ListScreen,
 │   │                         DetailScreen, FormScreen, SyncScreen
+│   │                         (ListScreen.kt incluye PantallaPrincipal(): 2 OutlinedTextField
+│   │                          de ruta y peso + botón Guardar + LazyColumn con los envíos)
 │   ├── components/           ConnectivityBanner, SyncStatusIndicator, AppScaffold, ItemCard,
 │   │                         InputField, AppLogo, EstadoEnvioUi, Mensajes, Formato
 │   └── theme/                Color, Theme, Type
@@ -305,9 +307,7 @@ com.example.rutalogcliente/
 ├── util/ConnectivityObserver.kt   detecta si hay conexión
 ├── di/AppContainer.kt        crea la base, la API y los repositorios
 ├── RutaLogApplication.kt     inicia el contenedor
-└── MainActivity.kt           inicializa los ViewModel
-                              + @Composable PantallaPrincipal(): 2 OutlinedTextField (ruta y peso)
-                                + botón Guardar + LazyColumn con los envíos guardados
+└── MainActivity.kt           inicializa los ViewModel y abre AppNavigation
 ```
 
 ### Pantallas
@@ -317,8 +317,8 @@ com.example.rutalogcliente/
 | Splash | `SplashScreen.kt` | Animación de ~2.9 s; al terminar va a Inicio o al Login según haya sesión |
 | Login | `LoginScreen.kt` | Correo, clave y cuenta demo; valida contra la API |
 | Inicio | `HomeScreen.kt` | Resumen, accesos rápidos, rastreo por guía y envíos recientes |
-| Mis envíos | `ListScreen.kt` | Lista (`LazyColumn`) con búsqueda y filtro por estado |
-| Registrar | `PantallaPrincipal()` en `MainActivity.kt` | Campos **Ruta** y **Peso (kg)**, costo en vivo, botón **Guardar** y `LazyColumn` con los envíos guardados |
+| Mis envíos | `ListScreen()` en `ListScreen.kt` | Lista (`LazyColumn`) con búsqueda y filtro por estado |
+| Registrar | `PantallaPrincipal()` en `ListScreen.kt` | Campos **Ruta** y **Peso (kg)**, costo en vivo, botón **Guardar** y `LazyColumn` con los envíos guardados |
 | Seguimiento | `DetailScreen.kt` | Estado, línea de tiempo, datos, costo, sincronización, editar y eliminar |
 | Editar | `FormScreen.kt` | Cambiar la ruta o el peso de un envío pendiente |
 | Sincronizar | `SyncScreen.kt` | Conexión, última sincronización, contadores, cola de operaciones y botón **Sincronizar ahora** |

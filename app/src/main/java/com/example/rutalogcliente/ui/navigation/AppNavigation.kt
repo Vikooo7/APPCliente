@@ -16,7 +16,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.rutalogcliente.PantallaPrincipal
 import com.example.rutalogcliente.ui.components.LocalEnLinea
 import com.example.rutalogcliente.ui.components.LocalOperacionesEnCola
 import com.example.rutalogcliente.ui.components.PestanaCliente
@@ -25,6 +24,7 @@ import com.example.rutalogcliente.ui.screens.FormScreen
 import com.example.rutalogcliente.ui.screens.HomeScreen
 import com.example.rutalogcliente.ui.screens.ListScreen
 import com.example.rutalogcliente.ui.screens.LoginScreen
+import com.example.rutalogcliente.ui.screens.PantallaPrincipal
 import com.example.rutalogcliente.ui.screens.SplashScreen
 import com.example.rutalogcliente.ui.screens.SyncScreen
 import com.example.rutalogcliente.viewmodel.AuthViewModel
@@ -212,7 +212,7 @@ fun AppNavigation(
                 val id = entrada.arguments?.getInt("envioId") ?: -1
                 val esEdicion = id != -1
                 if (!esEdicion) {
-                    // Registro nuevo: PantallaPrincipal (en MainActivity.kt), al estilo del ejemplo de clase.
+                    // Registro nuevo: PantallaPrincipal (en ListScreen.kt), al estilo del ejemplo de clase.
                     PantallaPrincipal(
                         envioViewModel = envioViewModel,
                         nombreUsuario = nombreUsuario,
