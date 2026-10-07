@@ -28,8 +28,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.rutalogcliente.data.local.Envio
 import com.example.rutalogcliente.model.CatalogoRutas
+import com.example.rutalogcliente.model.Envio
 import com.example.rutalogcliente.model.estadoEnvio
 
 /** Tarjeta de un envío en las listas (Inicio y Mis envíos). */
@@ -105,13 +105,15 @@ fun ItemCard(
                 trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
 
-            Row {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = formatoPeso(envio.pesoKg),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Spacer(modifier = Modifier.width(12.dp))
+                // Indica si el envío ya está en el servidor o sigue en la cola local.
+                SyncStatusIndicator(estado = envio.estadoSync, modifier = Modifier.weight(1f))
                 Text(
                     text = formatoSoles(envio.costoEnvio),
                     style = MaterialTheme.typography.bodySmall,

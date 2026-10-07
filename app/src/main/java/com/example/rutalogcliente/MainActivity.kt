@@ -52,9 +52,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.rutalogcliente.data.local.AppDatabase
-import com.example.rutalogcliente.data.local.Envio
 import com.example.rutalogcliente.model.CatalogoRutas
+import com.example.rutalogcliente.model.Envio
 import com.example.rutalogcliente.model.RutaTarifa
 import com.example.rutalogcliente.ui.components.AppScaffold
 import com.example.rutalogcliente.ui.components.EstadoVacio
@@ -68,8 +67,12 @@ import com.example.rutalogcliente.ui.navigation.AppNavigation
 import com.example.rutalogcliente.ui.theme.RutaLogTheme
 import com.example.rutalogcliente.viewmodel.AuthViewModel
 import com.example.rutalogcliente.viewmodel.EnvioViewModel
+import com.example.rutalogcliente.viewmodel.SyncViewModel
 
-/** RutaLog Perú · App Cliente. Crea la base de datos Room e inicializa los ViewModel. */
+/**
+ * RutaLog Perú · App Cliente.
+ * Toma las dependencias del contenedor (Room, API y repositorios) e inicializa los ViewModel.
+ */
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,13 +80,31 @@ class MainActivity : ComponentActivity() {
         // La barra superior siempre es azul oscuro: íconos del sistema en blanco.
         enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
 
-        val db = AppDatabase.getDB(this)
+        val contenedor = (application as RutaLogApplication).contenedor
 
         setContent {
             RutaLogTheme {
-                val authViewModel: AuthViewModel = viewModel(factory = AuthViewModel.factory(db.usuarioDao()))
-                val envioViewModel: EnvioViewModel = viewModel(factory = EnvioViewModel.factory(db.envioDao()))
-                AppNavigation(authViewModel = authViewModel, envioViewModel = envioViewModel)
+                val authViewModel: AuthViewModel = viewModel(
+                    factory = AuthViewModel.factory(contenedor.authRepository)
+                )
+                val envioViewModel: EnvioViewModel = viewModel(
+                    factory = EnvioViewModel.factory(
+                        repositorio = contenedor.envioRepository,
+                        programarSincronizacion = contenedor::programarSincronizacion
+                    )
+                )
+                val syncViewModel: SyncViewModel = viewModel(
+                    factory = SyncViewModel.factory(
+                        repositorio = contenedor.syncRepository,
+                        conectividad = contenedor.conectividad,
+                        simularError = contenedor.simularErrorServidor
+                    )
+                )
+                AppNavigation(
+                    authViewModel = authViewModel,
+                    envioViewModel = envioViewModel,
+                    syncViewModel = syncViewModel
+                )
             }
         }
     }

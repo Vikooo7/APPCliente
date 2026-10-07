@@ -45,7 +45,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.example.rutalogcliente.data.local.Envio
+import com.example.rutalogcliente.model.Envio
 import com.example.rutalogcliente.model.CatalogoRutas
 import com.example.rutalogcliente.model.RutaTarifa
 import com.example.rutalogcliente.ui.components.AppScaffold

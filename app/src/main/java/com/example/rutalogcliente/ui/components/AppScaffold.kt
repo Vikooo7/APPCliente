@@ -15,7 +15,10 @@ import androidx.compose.material.icons.filled.AddBox
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,7 +48,8 @@ import com.example.rutalogcliente.ui.theme.AzulRuta
 enum class PestanaCliente(val etiqueta: String, val icono: ImageVector) {
     INICIO("Inicio", Icons.Default.Home),
     REGISTRAR("Registrar", Icons.Default.AddBox),
-    MIS_ENVIOS("Mis envíos", Icons.Default.Inventory)
+    MIS_ENVIOS("Mis envíos", Icons.Default.Inventory),
+    SINCRONIZAR("Sincronizar", Icons.Default.Sync)
 }
 
 /**
@@ -65,6 +69,8 @@ fun AppScaffold(
     content: @Composable (PaddingValues) -> Unit
 ) {
     var confirmarSalida by remember { mutableStateOf(false) }
+    val enLinea = LocalEnLinea.current
+    val enCola = LocalOperacionesEnCola.current
 
     Scaffold(
         modifier = modifier,
@@ -121,22 +127,34 @@ fun AppScaffold(
                         NavigationBarItem(
                             selected = opcion == pestana,
                             onClick = { if (opcion != pestana) onPestana(opcion) },
-                            icon = { Icon(opcion.icono, contentDescription = opcion.etiqueta) },
-                            label = { Text(opcion.etiqueta) }
+                            icon = {
+                                // La pestaña Sincronizar muestra cuántas operaciones hay en la cola.
+                                if (opcion == PestanaCliente.SINCRONIZAR && enCola > 0) {
+                                    BadgedBox(badge = { Badge { Text(enCola.toString()) } }) {
+                                        Icon(opcion.icono, contentDescription = opcion.etiqueta)
+                                    }
+                                } else {
+                                    Icon(opcion.icono, contentDescription = opcion.etiqueta)
+                                }
+                            },
+                            label = { Text(opcion.etiqueta, maxLines = 1) }
                         )
                     }
                 }
             }
         }
     ) { innerPadding ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
                 .consumeWindowInsets(innerPadding)
                 .imePadding()
         ) {
-            content(PaddingValues(0.dp))
+            ConnectivityBanner(enLinea = enLinea)
+            Box(modifier = Modifier.weight(1f)) {
+                content(PaddingValues(0.dp))
+            }
         }
     }
 

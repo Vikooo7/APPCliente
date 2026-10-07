@@ -1,10 +1,8 @@
 package com.example.rutalogcliente.model
 
-import com.example.rutalogcliente.data.local.Envio
-
 /**
- * Estados de un envío. En Room se guarda el [codigo]. La App Cliente registra
- * los envíos como PENDIENTE; la App Operador los pasa a los demás estados.
+ * Estados de negocio de un envío. En Room y en la API se guarda el [codigo].
+ * La App Cliente registra los envíos como PENDIENTE; el operador los pasa a los demás estados.
  */
 enum class EstadoEnvio(
     val codigo: String,

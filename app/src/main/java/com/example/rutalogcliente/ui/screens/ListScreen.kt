@@ -26,7 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.rutalogcliente.data.local.Envio
+import com.example.rutalogcliente.model.Envio
 import com.example.rutalogcliente.model.EstadoEnvio
 import com.example.rutalogcliente.ui.components.AppScaffold
 import com.example.rutalogcliente.ui.components.EstadoVacio

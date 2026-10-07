@@ -44,7 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
-import com.example.rutalogcliente.data.local.Envio
+import com.example.rutalogcliente.model.Envio
 import com.example.rutalogcliente.model.EstadoEnvio
 import com.example.rutalogcliente.model.estadoEnvio
 import com.example.rutalogcliente.ui.components.AppScaffold

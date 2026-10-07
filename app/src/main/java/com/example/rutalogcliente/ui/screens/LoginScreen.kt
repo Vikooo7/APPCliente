@@ -51,22 +51,22 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.rutalogcliente.ui.components.AppLogo
+import com.example.rutalogcliente.ui.components.ConnectivityBanner
 import com.example.rutalogcliente.ui.components.InputField
+import com.example.rutalogcliente.ui.components.LocalEnLinea
 import com.example.rutalogcliente.ui.components.MensajeError
-import com.example.rutalogcliente.ui.components.MensajeInfo
 import com.example.rutalogcliente.ui.theme.AzulRuta
 import com.example.rutalogcliente.ui.theme.AzulRutaClaro
 import com.example.rutalogcliente.viewmodel.AuthUiState
 
-/** RFA03 + RFA04: inicio de sesión contra la tabla usuarios. */
+/** Inicio de sesión contra la API REST. La contraseña no se guarda en el teléfono. */
 @Composable
 fun LoginScreen(
     estado: AuthUiState,
     onLogin: (correo: String, clave: String) -> Unit,
-    onIrARegistro: () -> Unit,
     onLimpiarMensajes: () -> Unit
 ) {
-    var correo by rememberSaveable(estado.correoSugerido) { mutableStateOf(estado.correoSugerido) }
+    var correo by rememberSaveable { mutableStateOf("") }
     var clave by rememberSaveable { mutableStateOf("") }
 
     val sacudida = remember { Animatable(0f) }
@@ -117,6 +117,8 @@ fun LoginScreen(
             }
         }
 
+        ConnectivityBanner(enLinea = LocalEnLinea.current)
+
         Column(
             modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -136,8 +138,6 @@ fun LoginScreen(
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold
                     )
-
-                    estado.mensaje?.let { MensajeInfo(texto = it) }
 
                     InputField(
                         valor = correo,
@@ -206,22 +206,16 @@ fun LoginScreen(
                 }
             }
 
-            Row(
+            Text(
+                text = "El inicio de sesión se valida en el servidor. Si ya iniciaste sesión antes, " +
+                    "la app abre tus datos guardados aunque no tengas conexión.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .navigationBarsPadding(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "¿No tienes cuenta?",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                TextButton(onClick = onIrARegistro) {
-                    Text("Regístrate", fontWeight = FontWeight.Bold)
-                }
-            }
+                    .navigationBarsPadding()
+            )
         }
     }
 }

@@ -51,7 +51,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.rutalogcliente.data.local.Envio
+import com.example.rutalogcliente.model.Envio
+import com.example.rutalogcliente.model.EstadoSincronizacion
+import com.example.rutalogcliente.ui.components.SyncStatusIndicator
 import com.example.rutalogcliente.model.CatalogoRutas
 import com.example.rutalogcliente.model.esModificable
 import com.example.rutalogcliente.model.estadoEnvio
@@ -171,6 +173,37 @@ fun DetailScreen(
                             "Transportista asignado",
                             envio.transportistaAsignado ?: "Por asignar"
                         )
+                    }
+                }
+            }
+
+            item {
+                Tarjeta {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Sincronización",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f)
+                        )
+                        SyncStatusIndicator(estado = envio.estadoSync)
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = when (envio.estadoSync) {
+                            EstadoSincronizacion.SINCRONIZADO ->
+                                "Este envío está guardado en el servidor (id remoto ${envio.idRemoto}, versión ${envio.version})."
+                            EstadoSincronizacion.ERROR ->
+                                "El servidor rechazó el último cambio. Ve a la pestaña Sincronizar para reintentar o descartar."
+                            else ->
+                                "Guardado en el teléfono. Se enviará al servidor cuando haya conexión."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    envio.mensajeError?.let {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        MensajeError(texto = it)
                     }
                 }
             }

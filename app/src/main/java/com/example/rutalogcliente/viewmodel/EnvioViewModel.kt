@@ -5,9 +5,9 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.example.rutalogcliente.data.local.Envio
-import com.example.rutalogcliente.data.local.EnvioDao
+import com.example.rutalogcliente.data.repository.EnvioRepository
 import com.example.rutalogcliente.model.CatalogoRutas
+import com.example.rutalogcliente.model.Envio
 import com.example.rutalogcliente.model.EstadoEnvio
 import com.example.rutalogcliente.model.NumeroGuia
 import com.example.rutalogcliente.model.RutaTarifa
@@ -22,10 +22,18 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class EnvioViewModel(private val envioDao: EnvioDao) : ViewModel() {
+/**
+ * Estado y acciones de las pantallas de envíos. No toca Room ni Retrofit: todo pasa por
+ * [EnvioRepository]. Después de cada escritura llama a [programarSincronizacion] para que
+ * WorkManager la envíe cuando haya conexión.
+ */
+class EnvioViewModel(
+    private val repositorio: EnvioRepository,
+    private val programarSincronizacion: () -> Unit
+) : ViewModel() {
 
-    /** Lista completa leída de Room; se actualiza sola al insertar, editar o eliminar. */
-    val envios: StateFlow<List<Envio>> = envioDao.obtenerTodos()
+    /** Lista leída de Room; se actualiza sola al guardar, editar, eliminar o sincronizar. */
+    val envios: StateFlow<List<Envio>> = repositorio.observarEnvios()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val _texto = MutableStateFlow("")
@@ -51,7 +59,7 @@ class EnvioViewModel(private val envioDao: EnvioDao) : ViewModel() {
     fun buscarTexto(texto: String) { _texto.value = texto }
     fun filtrarPorEstado(estado: EstadoEnvio?) { _filtroEstado.value = estado }
 
-    fun obtenerPorId(id: Int): Flow<Envio?> = envioDao.obtenerPorId(id)
+    fun obtenerPorId(id: Int): Flow<Envio?> = repositorio.observarPorId(id)
 
     /** RF08 */
     fun calcularCosto(pesoKg: Double, ruta: RutaTarifa): Double =
@@ -72,7 +80,7 @@ class EnvioViewModel(private val envioDao: EnvioDao) : ViewModel() {
         }
     }
 
-    /** RF06 + RF07 + RF08: registra el envío en Room y genera su número de guía. */
+    /** RF06 + RF07 + RF08 + RF12: guarda el envío en Room y lo deja en la cola de sincronización. */
     fun registrar(
         ruta: RutaTarifa?,
         pesoTexto: String,
@@ -86,16 +94,8 @@ class EnvioViewModel(private val envioDao: EnvioDao) : ViewModel() {
         }
         val peso = leerPeso(pesoTexto) ?: return
         viewModelScope.launch {
-            val creado = envioDao.insertarConGuia(
-                Envio(
-                    numeroGuia = "",
-                    ruta = ruta.nombre,
-                    pesoKg = peso,
-                    costoEnvio = calcularCosto(peso, ruta),
-                    estado = EstadoEnvio.PENDIENTE.codigo,
-                    transportistaAsignado = null
-                )
-            )
+            val creado = repositorio.registrar(ruta, peso)
+            programarSincronizacion()
             onRegistrado(creado)
         }
     }
@@ -119,9 +119,8 @@ class EnvioViewModel(private val envioDao: EnvioDao) : ViewModel() {
         }
         val peso = leerPeso(pesoTexto) ?: return
         viewModelScope.launch {
-            envioDao.actualizar(
-                envio.copy(ruta = ruta.nombre, pesoKg = peso, costoEnvio = calcularCosto(peso, ruta))
-            )
+            repositorio.actualizar(envio.id, ruta, peso)
+            programarSincronizacion()
             onActualizado()
         }
     }
@@ -132,7 +131,8 @@ class EnvioViewModel(private val envioDao: EnvioDao) : ViewModel() {
             return
         }
         viewModelScope.launch {
-            envioDao.eliminar(envio)
+            repositorio.eliminar(envio.id)
+            programarSincronizacion()
             onEliminado()
         }
     }
@@ -145,7 +145,7 @@ class EnvioViewModel(private val envioDao: EnvioDao) : ViewModel() {
             return
         }
         viewModelScope.launch {
-            val envio = envioDao.buscarPorGuia(normalizada)
+            val envio = repositorio.buscarPorGuia(normalizada)
             if (envio == null) {
                 _errorBusqueda.value = "No encontramos la guía ${texto.trim().uppercase()}."
             } else {
@@ -160,8 +160,11 @@ class EnvioViewModel(private val envioDao: EnvioDao) : ViewModel() {
     }
 
     companion object {
-        fun factory(envioDao: EnvioDao): ViewModelProvider.Factory = viewModelFactory {
-            initializer { EnvioViewModel(envioDao) }
+        fun factory(
+            repositorio: EnvioRepository,
+            programarSincronizacion: () -> Unit
+        ): ViewModelProvider.Factory = viewModelFactory {
+            initializer { EnvioViewModel(repositorio, programarSincronizacion) }
         }
     }
 }
