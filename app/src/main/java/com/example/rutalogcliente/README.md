@@ -350,7 +350,7 @@ Las pantallas con barra inferior y el Login muestran la franja **"Sin conexión"
 
 ### APK
 
-El APK listo para instalar está en la carpeta `apk/` (Android 10 o superior). Para generarlo de nuevo en Android Studio: **Build → Generate App Bundles or APKs → Generate APKs**.
+El APK listo para instalar está en **Releases** del repositorio (`RutaLog-Cliente.apk`, Android 10 o superior). Para generarlo de nuevo en Android Studio: **Build → Generate App Bundles or APKs → Generate APKs**, o `gradlew assembleDebug` (queda en `app/build/outputs/apk/debug/`).
 
 ---
 
