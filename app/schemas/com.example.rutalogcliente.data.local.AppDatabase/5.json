@@ -1,0 +1,287 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 5,
+    "identityHash": "ddde7d9b29d7f1980dfa8b57e9b01844",
+    "entities": [
+      {
+        "tableName": "usuarios",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `nombre` TEXT NOT NULL, `correo` TEXT NOT NULL, `rol` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nombre",
+            "columnName": "nombre",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "correo",
+            "columnName": "correo",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rol",
+            "columnName": "rol",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "envios",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `idRemoto` INTEGER, `uuid` TEXT NOT NULL, `numeroGuia` TEXT NOT NULL, `ruta` TEXT NOT NULL, `pesoKg` REAL NOT NULL, `costoEnvio` REAL NOT NULL, `estado` TEXT NOT NULL, `transportistaAsignado` TEXT, `version` INTEGER NOT NULL, `estadoSync` TEXT NOT NULL, `eliminadoLocal` INTEGER NOT NULL, `mensajeError` TEXT, `destinatarioNombre` TEXT, `destinatarioTelefono` TEXT, `destinatarioDireccion` TEXT, `montoContraentrega` REAL NOT NULL DEFAULT 0, `intentos` INTEGER NOT NULL DEFAULT 0, `pagoEstado` TEXT NOT NULL DEFAULT 'NO_REQUERIDO', `guiaAnterior` TEXT)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "idRemoto",
+            "columnName": "idRemoto",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "uuid",
+            "columnName": "uuid",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "numeroGuia",
+            "columnName": "numeroGuia",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ruta",
+            "columnName": "ruta",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pesoKg",
+            "columnName": "pesoKg",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "costoEnvio",
+            "columnName": "costoEnvio",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "estado",
+            "columnName": "estado",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "transportistaAsignado",
+            "columnName": "transportistaAsignado",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "estadoSync",
+            "columnName": "estadoSync",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "eliminadoLocal",
+            "columnName": "eliminadoLocal",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mensajeError",
+            "columnName": "mensajeError",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "destinatarioNombre",
+            "columnName": "destinatarioNombre",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "destinatarioTelefono",
+            "columnName": "destinatarioTelefono",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "destinatarioDireccion",
+            "columnName": "destinatarioDireccion",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "montoContraentrega",
+            "columnName": "montoContraentrega",
+            "affinity": "REAL",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "intentos",
+            "columnName": "intentos",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "pagoEstado",
+            "columnName": "pagoEstado",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'NO_REQUERIDO'"
+          },
+          {
+            "fieldPath": "guiaAnterior",
+            "columnName": "guiaAnterior",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_envios_uuid",
+            "unique": true,
+            "columnNames": [
+              "uuid"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_envios_uuid` ON `${TABLE_NAME}` (`uuid`)"
+          }
+        ]
+      },
+      {
+        "tableName": "operaciones_pendientes",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `uuidOperacion` TEXT NOT NULL, `entidad` TEXT NOT NULL, `idEntidadLocal` INTEGER NOT NULL, `tipoOperacion` TEXT NOT NULL, `payload` TEXT NOT NULL, `fechaRegistro` INTEGER NOT NULL, `estado` TEXT NOT NULL, `intentos` INTEGER NOT NULL, `mensajeError` TEXT)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "uuidOperacion",
+            "columnName": "uuidOperacion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "entidad",
+            "columnName": "entidad",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "idEntidadLocal",
+            "columnName": "idEntidadLocal",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tipoOperacion",
+            "columnName": "tipoOperacion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fechaRegistro",
+            "columnName": "fechaRegistro",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "estado",
+            "columnName": "estado",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "intentos",
+            "columnName": "intentos",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mensajeError",
+            "columnName": "mensajeError",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "sync_metadata",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`recurso` TEXT NOT NULL, `ultimaSincronizacionExitosa` INTEGER, `cursorRemoto` TEXT, PRIMARY KEY(`recurso`))",
+        "fields": [
+          {
+            "fieldPath": "recurso",
+            "columnName": "recurso",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ultimaSincronizacionExitosa",
+            "columnName": "ultimaSincronizacionExitosa",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "cursorRemoto",
+            "columnName": "cursorRemoto",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "recurso"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ddde7d9b29d7f1980dfa8b57e9b01844')"
+    ]
+  }
+}

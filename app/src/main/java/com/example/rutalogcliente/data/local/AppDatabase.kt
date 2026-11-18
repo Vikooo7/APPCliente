@@ -26,7 +26,7 @@ import com.example.rutalogcliente.data.local.entities.UsuarioEntity
         OperacionPendienteEntity::class,
         SyncMetadataEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -60,6 +60,13 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** Guía anterior, si el servidor asignó otra al sincronizar. Solo agrega una columna. */
+        val MIGRACION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `envios` ADD COLUMN `guiaAnterior` TEXT")
+            }
+        }
+
         fun getDB(context: Context): AppDatabase =
             instancia ?: synchronized(this) {
                 instancia ?: Room.databaseBuilder(
@@ -67,7 +74,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "rutalog_cliente.db"
                 )
-                    .addMigrations(MIGRACION_2_3, MIGRACION_3_4)
+                    .addMigrations(MIGRACION_2_3, MIGRACION_3_4, MIGRACION_4_5)
                     // La versión 1 no tenía los campos de sincronización: se recrea la base.
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()

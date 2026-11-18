@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import com.example.rutalogcliente.MainActivity
 import com.example.rutalogcliente.data.remote.dto.LiquidacionDto
 import com.example.rutalogcliente.data.repository.CambioEstado
+import com.example.rutalogcliente.data.repository.GuiaCambiada
 import com.example.rutalogcliente.model.EstadoEnvio
 
 /**
@@ -56,6 +57,29 @@ object Notificaciones {
                 gestor.notify(cambio.numeroGuia.hashCode(), aviso)
             } catch (e: SecurityException) {
                 // El usuario quitó el permiso justo ahora: no se avisa.
+            }
+        }
+    }
+
+    /** La guía que generó el celular ya existía: el servidor asignó otra. Se avisa para no usar la vieja. */
+    fun avisarGuiasCambiadas(context: Context, cambios: List<GuiaCambiada>) {
+        if (cambios.isEmpty()) return
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+        val gestor = NotificationManagerCompat.from(context)
+        cambios.forEach { c ->
+            val texto = "Tu envío ${c.anterior} ahora es ${c.nueva}: ese número ya existía. " +
+                "Usa la guía nueva para el paquete y el QR."
+            val aviso = NotificationCompat.Builder(context, CANAL)
+                .setSmallIcon(android.R.drawable.stat_notify_sync)
+                .setContentTitle("Nueva guía: ${c.nueva}")
+                .setContentText(texto)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(texto))
+                .setAutoCancel(true)
+                .build()
+            try {
+                gestor.notify(c.nueva.hashCode() + 1, aviso)
+            } catch (e: SecurityException) {
+                // permiso retirado: el cambio igual se ve en el detalle del envío
             }
         }
     }

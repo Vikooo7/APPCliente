@@ -32,11 +32,24 @@ data class ResultadoSync(
     /** La API respondió 401: hay que volver a iniciar sesión (los cambios siguen en la cola). */
     val sesionVencida: Boolean = false,
     /** Envíos que cambiaron de estado en el servidor (recogido, en reparto, entregado...). */
-    val cambios: List<CambioEstado> = emptyList()
+    val cambios: List<CambioEstado> = emptyList(),
+    /** Envíos nuevos cuya guía ya existía en el servidor y recibieron otra. */
+    val guiasCambiadas: List<GuiaCambiada> = emptyList()
 )
 
 /** Un envío del cliente que avanzó en el servidor desde la última sincronización. */
 data class CambioEstado(val numeroGuia: String, val estado: EstadoEnvio)
+
+/** La guía que generó el celular ya era de otro envío: el servidor asignó [nueva]. */
+data class GuiaCambiada(val anterior: String, val nueva: String)
+
+/** Solo al registrar: si el servidor devuelve otra guía, la que generó el celular ya existía. */
+internal fun cambioDeGuia(tipoOperacion: String, guiaLocal: String, guiaServidor: String): GuiaCambiada? =
+    if (tipoOperacion == TipoOperacion.CREAR && !guiaLocal.equals(guiaServidor, ignoreCase = true)) {
+        GuiaCambiada(guiaLocal, guiaServidor)
+    } else {
+        null
+    }
 
 /**
  * Sincronización con la API REST (RF11 a RF15):
@@ -52,7 +65,9 @@ class SyncRepository(
     private val db: AppDatabase,
     private val api: ApiService,
     /** Avisa en el celular cuando un envío cambia de estado (lo conecta el AppContainer). */
-    private val alCambiarEstados: (List<CambioEstado>) -> Unit = {}
+    private val alCambiarEstados: (List<CambioEstado>) -> Unit = {},
+    /** Avisa cuando el servidor tuvo que asignar otra guía a un envío nuevo. */
+    private val alCambiarGuias: (List<GuiaCambiada>) -> Unit = {}
 ) {
 
     private val envioDao = db.envioDao()
@@ -74,6 +89,7 @@ class SyncRepository(
 
         var enviadas = 0
         var rechazadas = 0
+        val guiasCambiadas = mutableListOf<GuiaCambiada>()
 
         for (operacion in operacionDao.porEnviar()) {
             val envio = envioDao.porId(operacion.idEntidadLocal)
@@ -86,7 +102,7 @@ class SyncRepository(
 
             when (val resultado = enviar(operacion, envio)) {
                 is ResultadoApi.Exito -> {
-                    aplicarExito(operacion, envio.id, resultado.valor)
+                    aplicarExito(operacion, envio.id, resultado.valor)?.let { guiasCambiadas += it }
                     enviadas++
                 }
 
@@ -132,15 +148,20 @@ class SyncRepository(
             }
         }
 
+        // Se avisa aunque la descarga posterior falle: el cambio de guía ya quedó guardado.
+        if (guiasCambiadas.isNotEmpty()) alCambiarGuias(guiasCambiadas)
+
         when (val descarga = llamarApi { api.obtenerEnvios() }) {
             is ResultadoApi.Exito -> {
                 val cambios = guardarDescarga(descarga.valor.datos, descarga.valor.servidorAhora)
                 if (cambios.isNotEmpty()) alCambiarEstados(cambios)
-                ResultadoSync(enviadas, rechazadas, descargados = descarga.valor.datos.size, cambios = cambios)
+                ResultadoSync(enviadas, rechazadas, descargados = descarga.valor.datos.size, cambios = cambios, guiasCambiadas = guiasCambiadas)
             }
 
-            is ResultadoApi.Rechazo -> ResultadoSync(enviadas, rechazadas, error = descarga.mensaje, sesionVencida = descarga.http == 401)
-            is ResultadoApi.Fallo -> ResultadoSync(enviadas, rechazadas, error = descarga.mensaje)
+            is ResultadoApi.Rechazo -> ResultadoSync(
+                enviadas, rechazadas, error = descarga.mensaje, sesionVencida = descarga.http == 401, guiasCambiadas = guiasCambiadas
+            )
+            is ResultadoApi.Fallo -> ResultadoSync(enviadas, rechazadas, error = descarga.mensaje, guiasCambiadas = guiasCambiadas)
         }
     }
 
@@ -245,29 +266,35 @@ class SyncRepository(
         }
     }
 
-    private suspend fun aplicarExito(operacion: OperacionPendienteEntity, idLocal: Int, remoto: EnvioDto?) {
+    /** Aplica la respuesta del servidor. Devuelve el cambio de guía si el servidor tuvo que asignar otra. */
+    private suspend fun aplicarExito(operacion: OperacionPendienteEntity, idLocal: Int, remoto: EnvioDto?): GuiaCambiada? =
         db.withTransaction {
             operacionDao.eliminar(operacion)
-            val actual = envioDao.porId(idLocal) ?: return@withTransaction
-            when {
-                remoto == null -> envioDao.eliminar(actual)
-
+            val actual = envioDao.porId(idLocal) ?: return@withTransaction null
+            if (remoto == null) {
+                envioDao.eliminar(actual)
+                return@withTransaction null
+            }
+            val cambio = cambioDeGuia(operacion.tipoOperacion, actual.numeroGuia, remoto.numeroGuia)
+            val guiaAnterior = cambio?.anterior ?: actual.guiaAnterior
+            if (operacionDao.deEntidad(idLocal).isNotEmpty()) {
                 // Quedan más cambios de este envío en la cola: se guarda el identificador
                 // y la versión del servidor, pero sigue pendiente.
-                operacionDao.deEntidad(idLocal).isNotEmpty() -> envioDao.actualizar(
+                envioDao.actualizar(
                     actual.copy(
                         idRemoto = remoto.id,
                         numeroGuia = remoto.numeroGuia,
                         version = remoto.version,
                         estadoSync = EstadoSincronizacion.PENDIENTE.name,
-                        mensajeError = null
+                        mensajeError = null,
+                        guiaAnterior = guiaAnterior
                     )
                 )
-
-                else -> envioDao.actualizar(remoto.aEntidad(idLocal))
+            } else {
+                envioDao.actualizar(remoto.aEntidad(idLocal).copy(guiaAnterior = guiaAnterior))
             }
+            cambio
         }
-    }
 
     /** RF11: actualiza Room con lo descargado, sin sobrescribir cambios locales pendientes. */
     /** Guarda lo descargado y devuelve los envíos que cambiaron de estado. */
@@ -287,7 +314,8 @@ class SyncRepository(
                     local.id in conCambiosLocales || local.estadoSync != sincronizado -> Unit
                     else -> {
                         if (local.estado != remoto.estado) cambios += CambioEstado(remoto.numeroGuia, EstadoEnvio.desde(remoto.estado))
-                        envioDao.actualizar(remoto.aEntidad(local.id))
+                        // La guía anterior es solo del celular: el servidor no la conoce y no debe perderse.
+                        envioDao.actualizar(remoto.aEntidad(local.id).copy(guiaAnterior = local.guiaAnterior))
                     }
                 }
             }

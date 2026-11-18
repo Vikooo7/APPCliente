@@ -29,7 +29,9 @@ data class Envio(
     /** Intentos de entrega fallidos (RN-05: al tercero, el envío vuelve al remitente). */
     val intentos: Int = 0,
     /** RF-R02: el costo del envío se paga con QR de Banco Andino antes del recojo. */
-    val pagoEstado: String = "NO_REQUERIDO"
+    val pagoEstado: String = "NO_REQUERIDO",
+    /** Guía que generó el celular, si el servidor asignó otra al sincronizar porque ya existía. */
+    val guiaAnterior: String? = null
 ) {
     val cobraContraentrega: Boolean get() = montoContraentrega > 0.0
     val porPagar: Boolean get() = pagoEstado == "POR_PAGAR"

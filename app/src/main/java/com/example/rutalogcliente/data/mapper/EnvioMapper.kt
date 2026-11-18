@@ -39,7 +39,8 @@ fun EnvioEntity.aModelo(): Envio = Envio(
     },
     montoContraentrega = montoContraentrega,
     intentos = intentos,
-    pagoEstado = pagoEstado
+    pagoEstado = pagoEstado,
+    guiaAnterior = guiaAnterior
 )
 
 /**

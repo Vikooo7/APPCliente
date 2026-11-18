@@ -64,11 +64,8 @@ class EnvioRepository(private val db: AppDatabase) {
         destinatario: Destinatario,
         montoContraentrega: Double
     ): Envio = db.withTransaction {
-        val ultimo = envioDao.guias()
-            .mapNotNull { NumeroGuia.correlativo(it) }
-            .filter { it < NumeroGuia.INICIO_SERVIDOR }
-            .maxOrNull()
-        val correlativo = if (ultimo == null) NumeroGuia.PRIMER_CORRELATIVO else ultimo + 1
+        val usados = envioDao.guias().mapNotNull { NumeroGuia.correlativo(it) }.toSet()
+        val correlativo = NumeroGuia.correlativoLibre(usados)
 
         val nuevo = EnvioEntity(
             idRemoto = null,

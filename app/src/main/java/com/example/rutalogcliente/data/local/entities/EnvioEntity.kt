@@ -34,5 +34,7 @@ data class EnvioEntity(
     @ColumnInfo(defaultValue = "0") val montoContraentrega: Double = 0.0,
     @ColumnInfo(defaultValue = "0") val intentos: Int = 0,
     /** RF-R02: NO_REQUERIDO (envíos anteriores), POR_PAGAR o PAGADO (confirmado por Banco Andino). */
-    @ColumnInfo(defaultValue = "NO_REQUERIDO") val pagoEstado: String = "NO_REQUERIDO"
+    @ColumnInfo(defaultValue = "NO_REQUERIDO") val pagoEstado: String = "NO_REQUERIDO",
+    /** Guía que generó el celular, si al sincronizar el servidor tuvo que asignar otra (ya existía). */
+    val guiaAnterior: String? = null
 )

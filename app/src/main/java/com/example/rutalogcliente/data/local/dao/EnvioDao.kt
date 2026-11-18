@@ -36,10 +36,15 @@ interface EnvioDao {
     @Query("SELECT numeroGuia FROM envios")
     suspend fun guias(): List<String>
 
-    /** RF09: la guía se compara sin guiones ni espacios y en mayúsculas. */
+    /**
+     * RF09: la guía se compara sin guiones ni espacios y en mayúsculas. También encuentra el envío por la
+     * guía que generó el celular si el servidor luego le asignó otra (guiaAnterior).
+     */
     @Query(
         "SELECT * FROM envios WHERE eliminadoLocal = 0 " +
-            "AND REPLACE(REPLACE(UPPER(numeroGuia), '-', ''), ' ', '') = :guiaNormalizada LIMIT 1"
+            "AND (REPLACE(REPLACE(UPPER(numeroGuia), '-', ''), ' ', '') = :guiaNormalizada " +
+            "OR REPLACE(REPLACE(UPPER(IFNULL(guiaAnterior, '')), '-', ''), ' ', '') = :guiaNormalizada) " +
+            "ORDER BY CASE WHEN REPLACE(REPLACE(UPPER(numeroGuia), '-', ''), ' ', '') = :guiaNormalizada THEN 0 ELSE 1 END LIMIT 1"
     )
     suspend fun buscarPorGuia(guiaNormalizada: String): EnvioEntity?
 

@@ -37,7 +37,12 @@ class AppContainer(context: Context) {
 
     val authRepository = AuthRepository(api, db, sesion)
     val envioRepository = EnvioRepository(db)
-    val syncRepository = SyncRepository(db, api) { cambios -> Notificaciones.avisarCambios(contextoApp, cambios) }
+    val syncRepository = SyncRepository(
+        db = db,
+        api = api,
+        alCambiarEstados = { cambios -> Notificaciones.avisarCambios(contextoApp, cambios) },
+        alCambiarGuias = { cambios -> Notificaciones.avisarGuiasCambiadas(contextoApp, cambios) }
+    )
     val seguimientoRepository = SeguimientoRepository(api)
     val pagoRepository = PagoRepository(api, contextoApp)
 

@@ -150,6 +150,13 @@ fun DetailScreen(
                                 fontFamily = FontFamily.Monospace,
                                 fontWeight = FontWeight.Bold
                             )
+                            envio.guiaAnterior?.let { anterior ->
+                                Text(
+                                    text = "Antes $anterior: ese número ya existía y el servidor asignó este.",
+                                    color = Color.White.copy(alpha = 0.8f),
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
                         }
                         EstadoBadge(estado = estado, sobreFondoOscuro = true)
                     }
