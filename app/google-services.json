@@ -1,0 +1,121 @@
+{
+  "project_info": {
+    "project_number": "636900660499",
+    "project_id": "rutalog-peru",
+    "storage_bucket": "rutalog-peru.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:636900660499:android:041af7cc241f12e1e136e6",
+        "android_client_info": {
+          "package_name": "com.example.rutalogadmin"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "636900660499-lnnb6f3bibgk7ojvpt0r9ibe2mqq3var.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.rutalogadmin",
+            "certificate_hash": "9b7c30ae13bda826a0ec2d0336af65c0b4520d42"
+          }
+        },
+        {
+          "client_id": "636900660499-pnrjm2lb8tsvvv2gkgaeo4ttrd37fjpl.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAyjmkDfBaEW47MpKZ-JDOYjVSTE4Fel50"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "636900660499-pnrjm2lb8tsvvv2gkgaeo4ttrd37fjpl.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:636900660499:android:01ba23b105b51f6ce136e6",
+        "android_client_info": {
+          "package_name": "com.example.rutalogcliente"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "636900660499-l66oe7sncq0ke0t9jqijo7ufb0mfc5vf.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.rutalogcliente",
+            "certificate_hash": "9b7c30ae13bda826a0ec2d0336af65c0b4520d42"
+          }
+        },
+        {
+          "client_id": "636900660499-pnrjm2lb8tsvvv2gkgaeo4ttrd37fjpl.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAyjmkDfBaEW47MpKZ-JDOYjVSTE4Fel50"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "636900660499-pnrjm2lb8tsvvv2gkgaeo4ttrd37fjpl.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:636900660499:android:264613fe3eb9a8ede136e6",
+        "android_client_info": {
+          "package_name": "com.example.rutalogcourier"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "636900660499-e24q4ad15f53l5f07m6bbnoepomsas2d.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.rutalogcourier",
+            "certificate_hash": "9b7c30ae13bda826a0ec2d0336af65c0b4520d42"
+          }
+        },
+        {
+          "client_id": "636900660499-pnrjm2lb8tsvvv2gkgaeo4ttrd37fjpl.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAyjmkDfBaEW47MpKZ-JDOYjVSTE4Fel50"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "636900660499-pnrjm2lb8tsvvv2gkgaeo4ttrd37fjpl.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
