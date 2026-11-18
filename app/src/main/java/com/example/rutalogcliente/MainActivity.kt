@@ -24,6 +24,12 @@ import com.example.rutalogcliente.viewmodel.SyncViewModel
  */
 class MainActivity : ComponentActivity() {
 
+    /** Al encender la pantalla o volver de otra app (por ejemplo, de pagar en Banco Andino), se revisa la red. */
+    override fun onResume() {
+        super.onResume()
+        (application as RutaLogApplication).contenedor.conectividad.revisarAhora()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // La barra superior siempre es azul oscuro: íconos del sistema en blanco.
