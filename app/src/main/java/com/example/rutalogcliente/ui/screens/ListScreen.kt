@@ -22,8 +22,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Scale
 import androidx.compose.material.icons.filled.Search
@@ -37,6 +42,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -50,9 +56,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.rutalogcliente.model.CatalogoRutas
+import com.example.rutalogcliente.model.DestinatarioForm
 import com.example.rutalogcliente.model.Envio
 import com.example.rutalogcliente.model.EstadoEnvio
 import com.example.rutalogcliente.model.RutaTarifa
@@ -197,10 +205,10 @@ fun ListScreen(
 
 /**
  * Pantalla principal de registro (pestaña "Registrar"), al estilo del ejemplo de clase:
- * 2 OutlinedTextField (ruta y peso) + botón Guardar + LazyColumn con los envíos guardados en Room.
+ * OutlinedTextField (ruta, peso y destinatario) + botón Guardar + lista de los envíos guardados en Room.
  *
- * Guardar llama a EnvioViewModel.registrar(): valida el peso (RF10), calcula el costo (RF08),
- * inserta en Room (RF06) y genera el número de guía (RF07).
+ * Guardar llama a EnvioViewModel.registrar(): valida el peso (RF10) y el destinatario (HU-R01),
+ * calcula el costo (RF08), inserta en Room (RF06) y genera el número de guía (RF07).
  */
 @Composable
 fun PantallaPrincipal(
@@ -214,6 +222,7 @@ fun PantallaPrincipal(
 
     var ruta by remember { mutableStateOf<RutaTarifa?>(null) }
     var peso by rememberSaveable { mutableStateOf("") }
+    var destinatario by remember { mutableStateOf(DestinatarioForm()) }
     var menuRutas by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var guiaGenerada by remember { mutableStateOf<String?>(null) }
@@ -227,11 +236,14 @@ fun PantallaPrincipal(
         envioViewModel.registrar(
             ruta = ruta,
             pesoTexto = peso,
+            destinatario = destinatario,
             onError = { error = it },
             onRegistrado = { envio ->
-                guiaGenerada = "Guía ${envio.numeroGuia} · ${envio.ruta} · ${formatoSoles(envio.costoEnvio)}"
+                guiaGenerada = "Guía ${envio.numeroGuia} · ${envio.ruta} · ${formatoSoles(envio.costoEnvio)}" +
+                    if (envio.cobraContraentrega) " · cobrar ${formatoSoles(envio.montoContraentrega)}" else ""
                 ruta = null
                 peso = ""
+                destinatario = DestinatarioForm()
             }
         )
     }
@@ -243,137 +255,220 @@ fun PantallaPrincipal(
         onPestana = onPestana,
         onCerrarSesion = onCerrarSesion
     ) {
-        Column(
+        // Una sola lista desplazable: el formulario arriba y, debajo, los envíos guardados en Room.
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 16.dp),
+            contentPadding = PaddingValues(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
-                    // Campo 1: ruta (de solo lectura; al tocarlo se abre la lista de rutas)
-                    Box {
-                        OutlinedTextField(
-                            value = ruta?.nombre ?: "",
-                            onValueChange = {},
-                            readOnly = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Ruta") },
-                            placeholder = { Text("Selecciona una ruta") },
-                            leadingIcon = { Icon(Icons.Default.Map, contentDescription = null) },
-                            trailingIcon = {
-                                Icon(
-                                    imageVector = if (menuRutas) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
-                                    contentDescription = null
-                                )
-                            },
-                            supportingText = {
-                                Text(ruta?.let { "${it.region} · tarifa ${formatoSoles(it.tarifaPorKg)}/kg" } ?: "27 rutas hacia las 25 regiones")
-                            },
-                            singleLine = true
-                        )
-                        Box(
-                            modifier = Modifier
-                                .matchParentSize()
-                                .padding(top = 8.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .clickable { menuRutas = true }
-                        )
-                        DropdownMenu(expanded = menuRutas, onDismissRequest = { menuRutas = false }) {
-                            CatalogoRutas.rutas.forEach { opcion ->
-                                DropdownMenuItem(
-                                    text = { Text("${opcion.nombre} · ${formatoSoles(opcion.tarifaPorKg)}/kg") },
-                                    onClick = {
-                                        ruta = opcion
-                                        menuRutas = false
-                                        error = null
-                                    }
-                                )
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Campo 1: ruta (de solo lectura; al tocarlo se abre la lista de rutas)
+                        Box {
+                            OutlinedTextField(
+                                value = ruta?.nombre ?: "",
+                                onValueChange = {},
+                                readOnly = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Ruta") },
+                                placeholder = { Text("Selecciona una ruta") },
+                                leadingIcon = { Icon(Icons.Default.Map, contentDescription = null) },
+                                trailingIcon = {
+                                    Icon(
+                                        imageVector = if (menuRutas) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
+                                        contentDescription = null
+                                    )
+                                },
+                                supportingText = {
+                                    Text(ruta?.let { "${it.region} · tarifa ${formatoSoles(it.tarifaPorKg)}/kg" } ?: "27 rutas hacia las 25 regiones")
+                                },
+                                singleLine = true
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .padding(top = 8.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .clickable { menuRutas = true }
+                            )
+                            DropdownMenu(expanded = menuRutas, onDismissRequest = { menuRutas = false }) {
+                                CatalogoRutas.rutas.forEach { opcion ->
+                                    DropdownMenuItem(
+                                        text = { Text("${opcion.nombre} · ${formatoSoles(opcion.tarifaPorKg)}/kg") },
+                                        onClick = {
+                                            ruta = opcion
+                                            menuRutas = false
+                                            error = null
+                                        }
+                                    )
+                                }
                             }
                         }
-                    }
 
-                    // Campo 2: peso en kg
-                    OutlinedTextField(
-                        value = peso,
-                        onValueChange = { valor ->
-                            peso = valor.filter { it.isDigit() || it == '.' || it == ',' }.take(8)
-                            error = null
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Peso (kg)") },
-                        leadingIcon = { Icon(Icons.Default.Scale, contentDescription = null) },
-                        supportingText = {
-                            Text(
-                                if (costo != null && pesoNumero != null && ruta != null) {
-                                    "Costo: ${formatoPeso(pesoNumero)} × ${formatoSoles(ruta!!.tarifaPorKg)} = ${formatoSoles(costo)}"
-                                } else {
-                                    "Debe ser mayor que 0 kg"
+                        // Campo 2: peso en kg
+                        OutlinedTextField(
+                            value = peso,
+                            onValueChange = { valor ->
+                                peso = valor.filter { it.isDigit() || it == '.' || it == ',' }.take(8)
+                                error = null
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Peso (kg)") },
+                            leadingIcon = { Icon(Icons.Default.Scale, contentDescription = null) },
+                            supportingText = {
+                                Text(
+                                    if (costo != null && pesoNumero != null && ruta != null) {
+                                        "Costo: ${formatoPeso(pesoNumero)} × ${formatoSoles(ruta!!.tarifaPorKg)} = ${formatoSoles(costo)}"
+                                    } else {
+                                        "Debe ser mayor que 0 kg"
+                                    }
+                                )
+                            },
+                            isError = error != null && (pesoNumero == null || pesoNumero <= 0),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                            singleLine = true
+                        )
+
+                        // HU-R01: a quién se entrega (el courier solo ve estos datos durante la entrega).
+                        OutlinedTextField(
+                            value = destinatario.nombre,
+                            onValueChange = {
+                                destinatario = destinatario.copy(nombre = it.take(80))
+                                error = null
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Destinatario") },
+                            placeholder = { Text("Nombre de quien recibe") },
+                            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                            keyboardOptions = KeyboardOptions(
+                                capitalization = KeyboardCapitalization.Words,
+                                imeAction = ImeAction.Next
+                            ),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = destinatario.telefono,
+                            onValueChange = { valor ->
+                                destinatario = destinatario.copy(telefono = valor.filter { it.isDigit() }.take(9))
+                                error = null
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Celular del destinatario") },
+                            leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
+                            supportingText = { Text("9 dígitos, empieza con 9") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = destinatario.direccion,
+                            onValueChange = {
+                                destinatario = destinatario.copy(direccion = it.take(160))
+                                error = null
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Dirección de entrega") },
+                            leadingIcon = { Icon(Icons.Default.Home, contentDescription = null) },
+                            keyboardOptions = KeyboardOptions(
+                                capitalization = KeyboardCapitalization.Sentences,
+                                imeAction = if (destinatario.cobrarContraentrega) ImeAction.Next else ImeAction.Done
+                            ),
+                            keyboardActions = KeyboardActions(onDone = { guardar() }),
+                            singleLine = true
+                        )
+
+                        // Contraentrega: RutaLog cobra al destinatario y liquida lo recaudado al remitente (RN-01).
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.QrCode, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 12.dp)
+                            ) {
+                                Text("Cobrar contraentrega", style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    text = "El courier cobra con QR antes de entregar.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = destinatario.cobrarContraentrega,
+                                onCheckedChange = {
+                                    destinatario = destinatario.copy(cobrarContraentrega = it)
+                                    error = null
                                 }
                             )
-                        },
-                        isError = error != null,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { guardar() }),
-                        singleLine = true
-                    )
+                        }
+                        AnimatedVisibility(visible = destinatario.cobrarContraentrega) {
+                            OutlinedTextField(
+                                value = destinatario.monto,
+                                onValueChange = { valor ->
+                                    destinatario = destinatario.copy(monto = valor.filter { it.isDigit() || it == '.' || it == ',' }.take(8))
+                                    error = null
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Monto a cobrar (S/)") },
+                                leadingIcon = { Icon(Icons.Default.Payments, contentDescription = null) },
+                                supportingText = { Text("Máximo S/ 10 000") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = { guardar() }),
+                                singleLine = true
+                            )
+                        }
 
-                    AnimatedVisibility(visible = error != null) {
-                        MensajeError(texto = error ?: "")
-                    }
-                    AnimatedVisibility(visible = guiaGenerada != null) {
-                        MensajeInfo(texto = guiaGenerada ?: "")
-                    }
+                        AnimatedVisibility(visible = error != null) {
+                            MensajeError(texto = error ?: "")
+                        }
+                        AnimatedVisibility(visible = guiaGenerada != null) {
+                            MensajeInfo(texto = guiaGenerada ?: "")
+                        }
 
-                    Button(
-                        onClick = { guardar() },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp)
-                    ) {
-                        Icon(Icons.Default.Save, contentDescription = null)
-                        Text("  Guardar")
+                        Button(
+                            onClick = { guardar() },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                        ) {
+                            Icon(Icons.Default.Save, contentDescription = null)
+                            Text("  Guardar")
+                        }
                     }
                 }
             }
 
-            Row(
-                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            item {
                 Text(
                     text = "Envíos guardados (${envios.size})",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(top = 6.dp)
                 )
             }
 
             // Lista de envíos leída de Room (se actualiza sola con Flow)
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                if (envios.isEmpty()) {
-                    item {
-                        EstadoVacio(
-                            icono = Icons.Default.Inventory,
-                            titulo = "Aún no hay envíos",
-                            mensaje = "Completa la ruta y el peso, y toca Guardar."
-                        )
-                    }
+            if (envios.isEmpty()) {
+                item {
+                    EstadoVacio(
+                        icono = Icons.Default.Inventory,
+                        titulo = "Aún no hay envíos",
+                        mensaje = "Completa los datos y toca Guardar."
+                    )
                 }
-                items(envios, key = { it.id }) { envio ->
-                    ItemCard(envio = envio, onClick = { onEnvio(envio) })
-                }
+            }
+            items(envios, key = { it.id }) { envio ->
+                ItemCard(envio = envio, onClick = { onEnvio(envio) })
             }
         }
     }

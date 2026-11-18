@@ -20,6 +20,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.EventRepeat
+import androidx.compose.material.icons.filled.ReportProblem
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ConfirmationNumber
@@ -50,6 +53,9 @@ val EstadoEnvio.color: Color
         EstadoEnvio.EN_TRANSITO -> Color(0xFFEF6C00)
         EstadoEnvio.EN_REPARTO -> Color(0xFF8E24AA)
         EstadoEnvio.ENTREGADO -> Color(0xFF2E7D32)
+        EstadoEnvio.FALLIDO -> Color(0xFFC62828)
+        EstadoEnvio.REPROGRAMADO -> Color(0xFF00897B)
+        EstadoEnvio.DEVUELTO -> Color(0xFF546E7A)
     }
 
 val EstadoEnvio.icono: ImageVector
@@ -59,6 +65,9 @@ val EstadoEnvio.icono: ImageVector
         EstadoEnvio.EN_TRANSITO -> Icons.Default.LocalShipping
         EstadoEnvio.EN_REPARTO -> Icons.Default.LocationOn
         EstadoEnvio.ENTREGADO -> Icons.Default.CheckCircle
+        EstadoEnvio.FALLIDO -> Icons.Default.ReportProblem
+        EstadoEnvio.REPROGRAMADO -> Icons.Default.EventRepeat
+        EstadoEnvio.DEVUELTO -> Icons.AutoMirrored.Filled.Undo
     }
 
 @Composable
@@ -95,9 +104,15 @@ private val pasosLineaTiempo = listOf(
     EstadoEnvio.ENTREGADO
 )
 
-/** Línea de tiempo: recogido → en tránsito → en reparto → entregado. */
+/**
+ * Línea de tiempo: recogido → en tránsito → en reparto → entregado.
+ * [horas] trae la hora real de cada paso según el seguimiento de la API, si ya se cargó.
+ * Un envío devuelto llegó hasta el reparto, pero nunca se entregó.
+ */
 @Composable
-fun LineaDeTiempo(estado: EstadoEnvio) {
+fun LineaDeTiempo(estado: EstadoEnvio, horas: Map<EstadoEnvio, String> = emptyMap()) {
+    val avance = if (estado == EstadoEnvio.DEVUELTO) EstadoEnvio.EN_REPARTO.paso else estado.paso
+    val fueraDelFlujo = estado == EstadoEnvio.FALLIDO || estado == EstadoEnvio.REPROGRAMADO || estado == EstadoEnvio.DEVUELTO
     Column {
         Surface(
             color = MaterialTheme.colorScheme.surfaceVariant,
@@ -117,10 +132,9 @@ fun LineaDeTiempo(estado: EstadoEnvio) {
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = if (estado == EstadoEnvio.PENDIENTE) {
-                        EstadoEnvio.PENDIENTE.descripcion
-                    } else {
-                        "Guía emitida y carga en manos de RutaLog."
+                    text = when {
+                        estado == EstadoEnvio.PENDIENTE || fueraDelFlujo -> estado.descripcion
+                        else -> "Guía emitida y carga en manos de RutaLog."
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -132,10 +146,11 @@ fun LineaDeTiempo(estado: EstadoEnvio) {
         pasosLineaTiempo.forEachIndexed { indice, paso ->
             PasoLineaTiempo(
                 paso = paso,
-                completado = estado.paso >= paso.paso,
+                completado = avance >= paso.paso,
                 actual = estado == paso,
-                lineaCompleta = estado.paso > paso.paso,
-                esUltimo = indice == pasosLineaTiempo.lastIndex
+                lineaCompleta = avance > paso.paso,
+                esUltimo = indice == pasosLineaTiempo.lastIndex,
+                hora = horas[paso]
             )
         }
     }
@@ -147,7 +162,8 @@ private fun PasoLineaTiempo(
     completado: Boolean,
     actual: Boolean,
     lineaCompleta: Boolean,
-    esUltimo: Boolean
+    esUltimo: Boolean,
+    hora: String?
 ) {
     val pulso = rememberInfiniteTransition(label = "PulsoPaso")
     val escala by pulso.animateFloat(
@@ -218,7 +234,11 @@ private fun PasoLineaTiempo(
                 color = if (completado) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = if (completado) paso.descripcion else "Pendiente",
+                text = when {
+                    !completado -> "Pendiente"
+                    hora != null -> "$hora · ${paso.descripcion}"
+                    else -> paso.descripcion
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

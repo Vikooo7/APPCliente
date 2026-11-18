@@ -25,22 +25,30 @@ import com.example.rutalogcliente.ui.screens.HomeScreen
 import com.example.rutalogcliente.ui.screens.ListScreen
 import com.example.rutalogcliente.ui.screens.LoginScreen
 import com.example.rutalogcliente.ui.screens.PantallaPrincipal
+import com.example.rutalogcliente.ui.screens.RegistroScreen
 import com.example.rutalogcliente.ui.screens.SplashScreen
 import com.example.rutalogcliente.ui.screens.SyncScreen
 import com.example.rutalogcliente.viewmodel.AuthViewModel
 import com.example.rutalogcliente.viewmodel.EnvioViewModel
+import com.example.rutalogcliente.viewmodel.PagosViewModel
+import com.example.rutalogcliente.ui.screens.MiDineroScreen
+import com.example.rutalogcliente.ui.screens.PagoEnvioScreen
 import com.example.rutalogcliente.viewmodel.SyncViewModel
 
 object Rutas {
     const val SPLASH = "splash"
     const val LOGIN = "login"
+    const val REGISTRO = "registro"
     const val HOME = "home"
     const val LISTA = "lista"
     const val SINCRONIZAR = "sincronizar"
     const val DETALLE = "detalle/{envioId}"
+    const val PAGO = "pago/{envioId}"
+    const val DINERO = "dinero"
     const val FORMULARIO = "formulario?envioId={envioId}"
 
     fun detalle(id: Int) = "detalle/$id"
+    fun pago(id: Int) = "pago/$id"
     fun formulario(id: Int? = null) = if (id == null) "formulario" else "formulario?envioId=$id"
 }
 
@@ -50,6 +58,7 @@ fun AppNavigation(
     authViewModel: AuthViewModel,
     envioViewModel: EnvioViewModel,
     syncViewModel: SyncViewModel,
+    pagosViewModel: PagosViewModel,
     navController: NavHostController = rememberNavController()
 ) {
     val auth by authViewModel.estado.collectAsState()
@@ -74,11 +83,17 @@ fun AppNavigation(
         }
     }
 
-    val cerrarSesion: () -> Unit = {
-        authViewModel.cerrarSesion()
+    val salir: (String?) -> Unit = { motivo ->
+        authViewModel.cerrarSesion(motivo)
         navController.navigate(Rutas.LOGIN) {
             popUpTo(navController.graph.id) { inclusive = true }
         }
+    }
+    val cerrarSesion: () -> Unit = { salir(null) }
+
+    // La sesión dura 30 días: al vencer, la API responde 401 y se vuelve al login sin perder la cola.
+    syncViewModel.alVencerSesion = {
+        salir("Tu sesión venció. Vuelve a iniciar sesión: tus cambios sin enviar siguen guardados.")
     }
 
     CompositionLocalProvider(
@@ -118,6 +133,38 @@ fun AppNavigation(
                             }
                         }
                     },
+                    onGoogle = { token ->
+                        authViewModel.loginConGoogle(token) {
+                            syncViewModel.sincronizar(silencioso = true)
+                            navController.navigate(Rutas.HOME) {
+                                popUpTo(Rutas.LOGIN) { inclusive = true }
+                            }
+                        }
+                    },
+                    onErrorGoogle = authViewModel::avisarError,
+                    onCrearCuenta = {
+                        navController.navigate(Rutas.REGISTRO) { launchSingleTop = true }
+                    },
+                    onLimpiarMensajes = authViewModel::limpiarMensajes
+                )
+            }
+
+            composable(Rutas.REGISTRO) {
+                RegistroScreen(
+                    estado = auth,
+                    onRegistrar = { nombre, correo, clave, confirmacion ->
+                        authViewModel.registrar(nombre, correo, clave, confirmacion) {
+                            // La cuenta nueva entra directo; no tiene envíos, pero así queda lista la sincronización.
+                            syncViewModel.sincronizar(silencioso = true)
+                            navController.navigate(Rutas.HOME) {
+                                popUpTo(navController.graph.id) { inclusive = true }
+                            }
+                        }
+                    },
+                    onIrALogin = {
+                        authViewModel.limpiarMensajes()
+                        navController.popBackStack(Rutas.LOGIN, inclusive = false)
+                    },
                     onLimpiarMensajes = authViewModel::limpiarMensajes
                 )
             }
@@ -138,6 +185,7 @@ fun AppNavigation(
                     onLimpiarErrorBusqueda = envioViewModel::limpiarErrorBusqueda,
                     onRegistrar = { irAPestana(PestanaCliente.REGISTRAR) },
                     onVerEnvios = { irAPestana(PestanaCliente.MIS_ENVIOS) },
+                    onMiDinero = { navController.navigate(Rutas.DINERO) },
                     onEnvio = { navController.navigate(Rutas.detalle(it.id)) },
                     onPestana = irAPestana,
                     onCerrarSesion = cerrarSesion
@@ -179,6 +227,35 @@ fun AppNavigation(
                 )
             }
 
+            // RF-R02: pagar el envío con QR de Banco Andino.
+            composable(Rutas.PAGO, arguments = listOf(navArgument("envioId") { type = NavType.IntType })) { entrada ->
+                SesionRequerida(hayUsuario = haySesion, onSinSesion = cerrarSesion)
+                val id = entrada.arguments?.getInt("envioId") ?: 0
+                val flujo = remember(id) { envioViewModel.obtenerPorId(id) }
+                val envio by flujo.collectAsState(initial = null)
+                val pago by pagosViewModel.pago.collectAsState()
+                PagoEnvioScreen(
+                    envio = envio,
+                    estado = pago,
+                    // Al confirmarse, se sincroniza para que el envío quede PAGADO también en el teléfono.
+                    onIniciar = { e -> pagosViewModel.iniciarPago(e) { syncViewModel.sincronizar(silencioso = true) } },
+                    onDetener = pagosViewModel::detenerPago,
+                    onVolver = { navController.popBackStack() }
+                )
+            }
+
+            // RF-R04 / RF-R05: cobros contraentrega y liquidaciones.
+            composable(Rutas.DINERO) {
+                SesionRequerida(hayUsuario = haySesion, onSinSesion = cerrarSesion)
+                val dinero by pagosViewModel.dinero.collectAsState()
+                MiDineroScreen(
+                    estado = dinero,
+                    onCargar = pagosViewModel::cargarMiDinero,
+                    onGuardarCuenta = pagosViewModel::guardarCuenta,
+                    onVolver = { navController.popBackStack() }
+                )
+            }
+
             composable(
                 route = Rutas.DETALLE,
                 arguments = listOf(navArgument("envioId") { type = NavType.IntType })
@@ -187,10 +264,15 @@ fun AppNavigation(
                 val id = entrada.arguments?.getInt("envioId") ?: 0
                 val flujo = remember(id) { envioViewModel.obtenerPorId(id) }
                 val envio by flujo.collectAsState(initial = null)
+                val seguimiento by envioViewModel.seguimiento.collectAsState()
                 DetailScreen(
                     envio = envio,
+                    seguimiento = seguimiento,
+                    onCargarSeguimiento = envioViewModel::cargarSeguimiento,
+                    cargarImagen = envioViewModel::cargarImagen,
                     onVolver = { navController.popBackStack() },
                     onEditar = { navController.navigate(Rutas.formulario(it.id)) },
+                    onPagar = { navController.navigate(Rutas.pago(it.id)) },
                     onEliminar = { aEliminar, onError ->
                         envioViewModel.eliminar(aEliminar, onError) {
                             navController.popBackStack()

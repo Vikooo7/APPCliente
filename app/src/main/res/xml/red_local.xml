@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- HTTPS siempre. La única excepción es localhost, para probar con la API corriendo en la PC
+     (adb reverse tcp:3100 tcp:3100 y compilar con -PurlApi=http://localhost:3100/). -->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+    </domain-config>
+</network-security-config>

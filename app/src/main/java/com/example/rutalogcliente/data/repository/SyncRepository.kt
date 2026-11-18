@@ -14,6 +14,7 @@ import com.example.rutalogcliente.data.remote.dto.ActualizarEnvioRequest
 import com.example.rutalogcliente.data.remote.dto.CrearEnvioRequest
 import com.example.rutalogcliente.data.remote.dto.EnvioDto
 import com.example.rutalogcliente.data.remote.llamarApi
+import com.example.rutalogcliente.model.EstadoEnvio
 import com.example.rutalogcliente.model.EstadoSincronizacion
 import com.google.gson.Gson
 import kotlinx.coroutines.flow.Flow
@@ -27,8 +28,15 @@ data class ResultadoSync(
     val rechazadas: Int = 0,
     val descargados: Int = 0,
     /** null si todo salió bien; si no, el motivo por el que se detuvo. */
-    val error: String? = null
+    val error: String? = null,
+    /** La API respondió 401: hay que volver a iniciar sesión (los cambios siguen en la cola). */
+    val sesionVencida: Boolean = false,
+    /** Envíos que cambiaron de estado en el servidor (recogido, en reparto, entregado...). */
+    val cambios: List<CambioEstado> = emptyList()
 )
+
+/** Un envío del cliente que avanzó en el servidor desde la última sincronización. */
+data class CambioEstado(val numeroGuia: String, val estado: EstadoEnvio)
 
 /**
  * Sincronización con la API REST (RF11 a RF15):
@@ -42,7 +50,9 @@ data class ResultadoSync(
  */
 class SyncRepository(
     private val db: AppDatabase,
-    private val api: ApiService
+    private val api: ApiService,
+    /** Avisa en el celular cuando un envío cambia de estado (lo conecta el AppContainer). */
+    private val alCambiarEstados: (List<CambioEstado>) -> Unit = {}
 ) {
 
     private val envioDao = db.envioDao()
@@ -83,7 +93,7 @@ class SyncRepository(
                 is ResultadoApi.Rechazo -> {
                     if (resultado.http == 401) {
                         marcar(operacion, envio, EstadoSincronizacion.PENDIENTE)
-                        return@withLock ResultadoSync(enviadas, rechazadas, error = resultado.mensaje)
+                        return@withLock ResultadoSync(enviadas, rechazadas, error = resultado.mensaje, sesionVencida = true)
                     }
                     // Validación o conflicto: no se pierde nada, queda marcado con el motivo.
                     db.withTransaction {
@@ -124,11 +134,12 @@ class SyncRepository(
 
         when (val descarga = llamarApi { api.obtenerEnvios() }) {
             is ResultadoApi.Exito -> {
-                guardarDescarga(descarga.valor.datos, descarga.valor.servidorAhora)
-                ResultadoSync(enviadas, rechazadas, descargados = descarga.valor.datos.size)
+                val cambios = guardarDescarga(descarga.valor.datos, descarga.valor.servidorAhora)
+                if (cambios.isNotEmpty()) alCambiarEstados(cambios)
+                ResultadoSync(enviadas, rechazadas, descargados = descarga.valor.datos.size, cambios = cambios)
             }
 
-            is ResultadoApi.Rechazo -> ResultadoSync(enviadas, rechazadas, error = descarga.mensaje)
+            is ResultadoApi.Rechazo -> ResultadoSync(enviadas, rechazadas, error = descarga.mensaje, sesionVencida = descarga.http == 401)
             is ResultadoApi.Fallo -> ResultadoSync(enviadas, rechazadas, error = descarga.mensaje)
         }
     }
@@ -188,7 +199,17 @@ class SyncRepository(
         return when (operacion.tipoOperacion) {
             TipoOperacion.CREAR -> llamarApi {
                 api.crearEnvio(
-                    CrearEnvioRequest(operacion.uuidOperacion, envio.uuid, datos.numeroGuia, datos.ruta, datos.pesoKg)
+                    CrearEnvioRequest(
+                        uuidOperacion = operacion.uuidOperacion,
+                        uuid = envio.uuid,
+                        numeroGuia = datos.numeroGuia,
+                        ruta = datos.ruta,
+                        pesoKg = datos.pesoKg,
+                        destinatarioNombre = datos.destinatarioNombre,
+                        destinatarioTelefono = datos.destinatarioTelefono,
+                        destinatarioDireccion = datos.destinatarioDireccion,
+                        montoContraentrega = datos.montoContraentrega
+                    )
                 )
             }
 
@@ -198,7 +219,16 @@ class SyncRepository(
                 llamarApi {
                     api.actualizarEnvio(
                         idRemoto,
-                        ActualizarEnvioRequest(operacion.uuidOperacion, datos.ruta, datos.pesoKg, envio.version)
+                        ActualizarEnvioRequest(
+                            uuidOperacion = operacion.uuidOperacion,
+                            ruta = datos.ruta,
+                            pesoKg = datos.pesoKg,
+                            version = envio.version,
+                            destinatarioNombre = datos.destinatarioNombre,
+                            destinatarioTelefono = datos.destinatarioTelefono,
+                            destinatarioDireccion = datos.destinatarioDireccion,
+                            montoContraentrega = datos.montoContraentrega
+                        )
                     )
                 }
             }
@@ -240,8 +270,10 @@ class SyncRepository(
     }
 
     /** RF11: actualiza Room con lo descargado, sin sobrescribir cambios locales pendientes. */
-    private suspend fun guardarDescarga(remotos: List<EnvioDto>, horaServidor: String?) {
+    /** Guarda lo descargado y devuelve los envíos que cambiaron de estado. */
+    private suspend fun guardarDescarga(remotos: List<EnvioDto>, horaServidor: String?): List<CambioEstado> =
         db.withTransaction {
+            val cambios = mutableListOf<CambioEstado>()
             val locales = envioDao.todos()
             val porUuid = locales.associateBy { it.uuid }
             val conCambiosLocales = operacionDao.todas().map { it.idEntidadLocal }.toSet()
@@ -253,7 +285,10 @@ class SyncRepository(
                 when {
                     local == null -> envioDao.insertar(remoto.aEntidad())
                     local.id in conCambiosLocales || local.estadoSync != sincronizado -> Unit
-                    else -> envioDao.actualizar(remoto.aEntidad(local.id))
+                    else -> {
+                        if (local.estado != remoto.estado) cambios += CambioEstado(remoto.numeroGuia, EstadoEnvio.desde(remoto.estado))
+                        envioDao.actualizar(remoto.aEntidad(local.id))
+                    }
                 }
             }
 
@@ -269,8 +304,8 @@ class SyncRepository(
             operacionDao.guardarMetadata(
                 SyncMetadataEntity(RECURSO_ENVIOS, System.currentTimeMillis(), horaServidor)
             )
+            cambios
         }
-    }
 
     private companion object {
         const val RECURSO_ENVIOS = "envios"

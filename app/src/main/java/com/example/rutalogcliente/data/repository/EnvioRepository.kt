@@ -7,6 +7,7 @@ import com.example.rutalogcliente.data.local.entities.OperacionPendienteEntity
 import com.example.rutalogcliente.data.local.entities.TipoOperacion
 import com.example.rutalogcliente.data.mapper.aModelo
 import com.example.rutalogcliente.model.CatalogoRutas
+import com.example.rutalogcliente.model.Destinatario
 import com.example.rutalogcliente.model.Envio
 import com.example.rutalogcliente.model.EstadoEnvio
 import com.example.rutalogcliente.model.EstadoSincronizacion
@@ -17,12 +18,19 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.util.UUID
 
-/** Datos de una operación tal como se guardan en el campo payload (JSON). */
+/**
+ * Datos de una operación tal como se guardan en el campo payload (JSON).
+ * Los del destinatario llegan como null en las operaciones guardadas antes de actualizar la app.
+ */
 data class PayloadEnvio(
     val uuid: String,
     val numeroGuia: String,
     val ruta: String,
-    val pesoKg: Double
+    val pesoKg: Double,
+    val destinatarioNombre: String? = null,
+    val destinatarioTelefono: String? = null,
+    val destinatarioDireccion: String? = null,
+    val montoContraentrega: Double? = null
 )
 
 /**
@@ -46,8 +54,16 @@ class EnvioRepository(private val db: AppDatabase) {
     suspend fun buscarPorGuia(guiaNormalizada: String): Envio? =
         envioDao.buscarPorGuia(guiaNormalizada)?.aModelo()
 
-    /** RF06 + RF07 + RF08: guarda el envío con su guía y su costo, y lo deja en la cola. */
-    suspend fun registrar(ruta: RutaTarifa, pesoKg: Double): Envio = db.withTransaction {
+    /**
+     * RF06 + RF07 + RF08 + HU-R01: guarda el envío con su guía, su costo, el destinatario y el
+     * monto contraentrega (0 si es prepagado), y lo deja en la cola.
+     */
+    suspend fun registrar(
+        ruta: RutaTarifa,
+        pesoKg: Double,
+        destinatario: Destinatario,
+        montoContraentrega: Double
+    ): Envio = db.withTransaction {
         val ultimo = envioDao.guias()
             .mapNotNull { NumeroGuia.correlativo(it) }
             .filter { it < NumeroGuia.INICIO_SERVIDOR }
@@ -64,21 +80,35 @@ class EnvioRepository(private val db: AppDatabase) {
             estado = EstadoEnvio.PENDIENTE.codigo,
             transportistaAsignado = null,
             version = 1,
-            estadoSync = EstadoSincronizacion.PENDIENTE.name
+            estadoSync = EstadoSincronizacion.PENDIENTE.name,
+            destinatarioNombre = destinatario.nombre,
+            destinatarioTelefono = destinatario.telefono,
+            destinatarioDireccion = destinatario.direccion,
+            montoContraentrega = montoContraentrega
         )
         val guardado = nuevo.copy(id = envioDao.insertar(nuevo).toInt())
         encolar(TipoOperacion.CREAR, guardado)
         guardado.aModelo()
     }
 
-    /** Cambia la ruta o el peso de un envío y deja el cambio en la cola. */
-    suspend fun actualizar(idLocal: Int, ruta: RutaTarifa, pesoKg: Double) {
+    /** Cambia la ruta, el peso, el destinatario o el monto contraentrega, y deja el cambio en la cola. */
+    suspend fun actualizar(
+        idLocal: Int,
+        ruta: RutaTarifa,
+        pesoKg: Double,
+        destinatario: Destinatario,
+        montoContraentrega: Double
+    ) {
         db.withTransaction {
             val actual = envioDao.porId(idLocal) ?: return@withTransaction
             val cambiado = actual.copy(
                 ruta = ruta.nombre,
                 pesoKg = pesoKg,
                 costoEnvio = CatalogoRutas.calcularCosto(pesoKg, ruta.tarifaPorKg),
+                destinatarioNombre = destinatario.nombre,
+                destinatarioTelefono = destinatario.telefono,
+                destinatarioDireccion = destinatario.direccion,
+                montoContraentrega = montoContraentrega,
                 estadoSync = EstadoSincronizacion.PENDIENTE.name,
                 mensajeError = null
             )
@@ -143,6 +173,16 @@ class EnvioRepository(private val db: AppDatabase) {
         estado = EstadoSincronizacion.PENDIENTE.name
     )
 
-    private fun payload(envio: EnvioEntity): String =
-        gson.toJson(PayloadEnvio(envio.uuid, envio.numeroGuia, envio.ruta, envio.pesoKg))
+    private fun payload(envio: EnvioEntity): String = gson.toJson(
+        PayloadEnvio(
+            uuid = envio.uuid,
+            numeroGuia = envio.numeroGuia,
+            ruta = envio.ruta,
+            pesoKg = envio.pesoKg,
+            destinatarioNombre = envio.destinatarioNombre,
+            destinatarioTelefono = envio.destinatarioTelefono,
+            destinatarioDireccion = envio.destinatarioDireccion,
+            montoContraentrega = envio.montoContraentrega
+        )
+    )
 }

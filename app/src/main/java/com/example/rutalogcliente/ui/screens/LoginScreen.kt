@@ -30,6 +30,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -51,6 +52,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.rutalogcliente.ui.components.AppLogo
+import com.example.rutalogcliente.ui.components.BotonGoogle
 import com.example.rutalogcliente.ui.components.ConnectivityBanner
 import com.example.rutalogcliente.ui.components.InputField
 import com.example.rutalogcliente.ui.components.LocalEnLinea
@@ -64,6 +66,9 @@ import com.example.rutalogcliente.viewmodel.AuthUiState
 fun LoginScreen(
     estado: AuthUiState,
     onLogin: (correo: String, clave: String) -> Unit,
+    onGoogle: (idTokenFirebase: String) -> Unit,
+    onErrorGoogle: (String) -> Unit,
+    onCrearCuenta: () -> Unit,
     onLimpiarMensajes: () -> Unit
 ) {
     var correo by rememberSaveable { mutableStateOf("") }
@@ -203,7 +208,25 @@ fun LoginScreen(
                     ) {
                         Text("Usar cuenta demo")
                     }
+
+                    BotonGoogle(
+                        habilitado = !estado.cargando,
+                        onToken = onGoogle,
+                        onError = onErrorGoogle
+                    )
                 }
+            }
+
+            OutlinedButton(
+                onClick = {
+                    onLimpiarMensajes()
+                    onCrearCuenta()
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+            ) {
+                Text("¿No tienes cuenta? Crear cuenta")
             }
 
             Text(

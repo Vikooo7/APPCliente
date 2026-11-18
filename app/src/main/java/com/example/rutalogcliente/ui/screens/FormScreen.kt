@@ -17,8 +17,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ConfirmationNumber
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Scale
 import androidx.compose.material3.AlertDialog
@@ -28,6 +32,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,9 +47,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.rutalogcliente.model.DestinatarioForm
 import com.example.rutalogcliente.model.Envio
 import com.example.rutalogcliente.model.CatalogoRutas
 import com.example.rutalogcliente.model.RutaTarifa
@@ -74,6 +81,7 @@ fun FormScreen(
 ) {
     var ruta by remember { mutableStateOf<RutaTarifa?>(null) }
     var peso by rememberSaveable { mutableStateOf("") }
+    var destinatario by remember { mutableStateOf(DestinatarioForm()) }
     var error by remember { mutableStateOf<String?>(null) }
     var guardando by remember { mutableStateOf(false) }
     var registrado by remember { mutableStateOf<Envio?>(null) }
@@ -83,7 +91,14 @@ fun FormScreen(
         if (envioEditado != null) {
             ruta = CatalogoRutas.porNombre(envioEditado.ruta)
             peso = envioEditado.pesoKg.toString()
+            destinatario = DestinatarioForm.desde(envioEditado)
         }
+    }
+
+    val limpiar = {
+        ruta = null
+        peso = ""
+        destinatario = DestinatarioForm()
     }
 
     val pesoNumero = envioViewModel.leerPeso(peso)
@@ -101,6 +116,7 @@ fun FormScreen(
                 envio = envioEditado,
                 ruta = ruta,
                 pesoTexto = peso,
+                destinatario = destinatario,
                 onError = {
                     error = it
                     guardando = false
@@ -114,6 +130,7 @@ fun FormScreen(
             envioViewModel.registrar(
                 ruta = ruta,
                 pesoTexto = peso,
+                destinatario = destinatario,
                 onError = {
                     error = it
                     guardando = false
@@ -143,9 +160,9 @@ fun FormScreen(
         ) {
             Text(
                 text = if (esEdicion) {
-                    "Puedes cambiar la ruta o el peso mientras el envío siga pendiente de recojo."
+                    "Puedes cambiar los datos mientras el envío siga pendiente de recojo."
                 } else {
-                    "Elige la ruta e indica el peso. El número de guía se genera al guardar."
+                    "Elige la ruta, indica el peso y a quién se entrega. El número de guía se genera al guardar."
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -201,10 +218,80 @@ fun FormScreen(
                     sufijo = "kg",
                     esError = error != null && (pesoNumero == null || pesoNumero <= 0),
                     textoAyuda = "Debe ser mayor que 0 kg",
-                    tipoTeclado = KeyboardType.Decimal,
-                    accionIme = ImeAction.Done,
-                    onAccionIme = { guardar() }
+                    tipoTeclado = KeyboardType.Decimal
                 )
+            }
+
+            // HU-R01: a quién se entrega. El courier solo ve estos datos durante la entrega.
+            Seccion(titulo = "Destinatario", icono = Icons.Default.Person) {
+                InputField(
+                    valor = destinatario.nombre,
+                    onValorChange = {
+                        destinatario = destinatario.copy(nombre = it.take(80))
+                        error = null
+                    },
+                    etiqueta = "Nombre de quien recibe",
+                    icono = Icons.Default.Person,
+                    mayusculas = KeyboardCapitalization.Words
+                )
+                InputField(
+                    valor = destinatario.telefono,
+                    onValorChange = { valor ->
+                        destinatario = destinatario.copy(telefono = valor.filter { it.isDigit() }.take(9))
+                        error = null
+                    },
+                    etiqueta = "Celular",
+                    icono = Icons.Default.Phone,
+                    textoAyuda = "9 dígitos, empieza con 9",
+                    tipoTeclado = KeyboardType.Phone
+                )
+                InputField(
+                    valor = destinatario.direccion,
+                    onValorChange = {
+                        destinatario = destinatario.copy(direccion = it.take(160))
+                        error = null
+                    },
+                    etiqueta = "Dirección de entrega",
+                    icono = Icons.Default.Home,
+                    mayusculas = KeyboardCapitalization.Sentences
+                )
+            }
+
+            // Contraentrega: RutaLog cobra al destinatario por ti y te liquida lo recaudado (RN-01).
+            Seccion(titulo = "Cobro contraentrega", icono = Icons.Default.QrCode) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Cobrar al destinatario", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            text = "El courier cobra con QR antes de entregar.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = destinatario.cobrarContraentrega,
+                        onCheckedChange = {
+                            destinatario = destinatario.copy(cobrarContraentrega = it)
+                            error = null
+                        }
+                    )
+                }
+                AnimatedVisibility(visible = destinatario.cobrarContraentrega) {
+                    InputField(
+                        valor = destinatario.monto,
+                        onValorChange = { valor ->
+                            destinatario = destinatario.copy(monto = valor.filter { it.isDigit() || it == '.' || it == ',' }.take(8))
+                            error = null
+                        },
+                        etiqueta = "Monto a cobrar",
+                        icono = Icons.Default.Payments,
+                        sufijo = "S/",
+                        textoAyuda = "Máximo S/ 10 000",
+                        tipoTeclado = KeyboardType.Decimal,
+                        accionIme = ImeAction.Done,
+                        onAccionIme = { guardar() }
+                    )
+                }
             }
 
             // RF08: costo = peso × tarifa por kg de la ruta
@@ -295,14 +382,20 @@ fun FormScreen(
                         style = MaterialTheme.typography.bodySmall,
                         textAlign = TextAlign.Center
                     )
+                    if (envio.cobraContraentrega) {
+                        Text(
+                            text = "Se cobrarán ${formatoSoles(envio.montoContraentrega)} a ${envio.destinatario?.nombre ?: "el destinatario"}.",
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
                         registrado = null
-                        ruta = null
-                        peso = ""
+                        limpiar()
                         onVerSeguimiento(envio)
                     }
                 ) { Text("Ver seguimiento") }
@@ -311,8 +404,7 @@ fun FormScreen(
                 TextButton(
                     onClick = {
                         registrado = null
-                        ruta = null
-                        peso = ""
+                        limpiar()
                     }
                 ) { Text("Registrar otro") }
             }

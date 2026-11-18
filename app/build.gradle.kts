@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.google.services)   // lee google-services.json (proyecto rutalog-peru)
 }
 
 android {
@@ -15,6 +16,8 @@ android {
         minSdk = 29
         targetSdk = 37
         versionCode = 1
+        // URL de la API: la de Vercel, o otra al compilar con -PurlApi=http://localhost:3100/ (pruebas en la PC).
+        buildConfigField("String", "URL_API", "\"" + (providers.gradleProperty("urlApi").orNull ?: "https://app-api-rutalog.vercel.app/") + "\"")
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -33,10 +36,27 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
+// Room guarda el esquema de cada versión en app/schemas: sirve para revisar las migraciones.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
+    // Inicio con Google: Credential Manager entrega la cuenta y Firebase emite el token que valida la API
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
+    implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
+
+    // QR de la guía para que el courier la escanee al recoger (HU-C02)
+    implementation(libs.zxing.core)
+
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)

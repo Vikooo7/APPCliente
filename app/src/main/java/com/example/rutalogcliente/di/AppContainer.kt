@@ -7,8 +7,11 @@ import com.example.rutalogcliente.data.remote.RetrofitClient
 import com.example.rutalogcliente.data.remote.api.ApiService
 import com.example.rutalogcliente.data.repository.AuthRepository
 import com.example.rutalogcliente.data.repository.EnvioRepository
+import com.example.rutalogcliente.data.repository.PagoRepository
+import com.example.rutalogcliente.data.repository.SeguimientoRepository
 import com.example.rutalogcliente.data.repository.SyncRepository
 import com.example.rutalogcliente.util.ConnectivityObserver
+import com.example.rutalogcliente.util.Notificaciones
 import com.example.rutalogcliente.worker.SyncWorker
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -34,7 +37,9 @@ class AppContainer(context: Context) {
 
     val authRepository = AuthRepository(api, db, sesion)
     val envioRepository = EnvioRepository(db)
-    val syncRepository = SyncRepository(db, api)
+    val syncRepository = SyncRepository(db, api) { cambios -> Notificaciones.avisarCambios(contextoApp, cambios) }
+    val seguimientoRepository = SeguimientoRepository(api)
+    val pagoRepository = PagoRepository(api, contextoApp)
 
     fun programarSincronizacion() {
         SyncWorker.programar(contextoApp)

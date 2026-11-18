@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.rutalogcliente.data.repository.AuthRepository
 import com.example.rutalogcliente.data.repository.ResultadoLogin
+import com.example.rutalogcliente.model.ReglasCuenta
 import com.example.rutalogcliente.model.Usuario
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -57,13 +58,56 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
         }
     }
 
+    /** Crea una cuenta de cliente; los errores de cada campo los muestra la pantalla antes de llegar aquí. */
+    fun registrar(nombre: String, correo: String, clave: String, confirmacion: String, onExito: () -> Unit) {
+        if (ReglasCuenta.validar(nombre, correo, clave, confirmacion).hayErrores) {
+            fallar("Revisa los datos marcados.")
+            return
+        }
+        viewModelScope.launch {
+            _estado.update { it.copy(cargando = true, error = null) }
+            val resultado = authRepository.registrar(
+                ReglasCuenta.limpiarNombre(nombre),
+                ReglasCuenta.limpiarCorreo(correo),
+                clave
+            )
+            when (resultado) {
+                is ResultadoLogin.Exito -> {
+                    _estado.update { it.copy(cargando = false, usuario = resultado.usuario) }
+                    onExito()
+                }
+
+                is ResultadoLogin.Error -> fallar(resultado.mensaje)
+            }
+        }
+    }
+
+    /** Recibe el ID token de Firebase tras elegir la cuenta de Google y pide la sesión a la API. */
+    fun loginConGoogle(idTokenFirebase: String, onExito: () -> Unit) {
+        viewModelScope.launch {
+            _estado.update { it.copy(cargando = true, error = null) }
+            when (val resultado = authRepository.loginConGoogle(idTokenFirebase)) {
+                is ResultadoLogin.Exito -> {
+                    _estado.update { it.copy(cargando = false, usuario = resultado.usuario) }
+                    onExito()
+                }
+
+                is ResultadoLogin.Error -> fallar(resultado.mensaje)
+            }
+        }
+    }
+
+    /** Error del lado de Google (sin cuentas en el teléfono, sin conexión...). */
+    fun avisarError(mensaje: String) = fallar(mensaje)
+
     fun limpiarMensajes() {
         _estado.update { it.copy(error = null) }
     }
 
-    fun cerrarSesion() {
+    /** [motivo] se muestra en el login (por ejemplo, cuando la sesión venció). */
+    fun cerrarSesion(motivo: String? = null) {
         authRepository.cerrarSesion()
-        _estado.value = AuthUiState(comprobandoSesion = false)
+        _estado.value = AuthUiState(comprobandoSesion = false, error = motivo)
     }
 
     private fun fallar(mensaje: String) {

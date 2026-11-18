@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.AddBox
 import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.Inventory
@@ -65,6 +66,7 @@ fun HomeScreen(
     onLimpiarErrorBusqueda: () -> Unit,
     onRegistrar: () -> Unit,
     onVerEnvios: () -> Unit,
+    onMiDinero: () -> Unit,
     onEnvio: (Envio) -> Unit,
     onPestana: (PestanaCliente) -> Unit,
     onCerrarSesion: () -> Unit
@@ -72,6 +74,7 @@ fun HomeScreen(
     var guia by rememberSaveable { mutableStateOf("") }
     val enCurso = envios.count { it.estadoEnvio != EstadoEnvio.ENTREGADO }
     val entregados = envios.count { it.estadoEnvio == EstadoEnvio.ENTREGADO }
+    val porPagar = envios.count { it.porPagar }
 
     AppScaffold(
         titulo = "Inicio",
@@ -126,6 +129,18 @@ fun HomeScreen(
                         modifier = Modifier.weight(1f)
                     )
                 }
+            }
+
+            // Fase de pagos: lo cobrado contraentrega y las liquidaciones de Banco Andino.
+            item {
+                AccionRapida(
+                    titulo = "Mi dinero",
+                    subtitulo = if (porPagar > 0) "$porPagar envío(s) por pagar · cobros y liquidaciones" else "Cobros contraentrega y liquidaciones",
+                    icono = Icons.Default.AccountBalanceWallet,
+                    color = MaterialTheme.colorScheme.tertiary,
+                    onClick = onMiDinero,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
 
             item {

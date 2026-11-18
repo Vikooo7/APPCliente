@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.rutalogcliente.data.local.dao.EnvioDao
 import com.example.rutalogcliente.data.local.dao.OperacionPendienteDao
 import com.example.rutalogcliente.data.local.dao.UsuarioDao
@@ -24,8 +26,8 @@ import com.example.rutalogcliente.data.local.entities.UsuarioEntity
         OperacionPendienteEntity::class,
         SyncMetadataEntity::class
     ],
-    version = 2,
-    exportSchema = false
+    version = 4,
+    exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
 
@@ -37,6 +39,27 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var instancia: AppDatabase? = null
 
+        /**
+         * Proyecto final: destinatario, monto contraentrega e intentos en envios. Solo agrega
+         * columnas: se conservan los envíos y la cola de operaciones que aún no se enviaron.
+         */
+        val MIGRACION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `envios` ADD COLUMN `destinatarioNombre` TEXT")
+                db.execSQL("ALTER TABLE `envios` ADD COLUMN `destinatarioTelefono` TEXT")
+                db.execSQL("ALTER TABLE `envios` ADD COLUMN `destinatarioDireccion` TEXT")
+                db.execSQL("ALTER TABLE `envios` ADD COLUMN `montoContraentrega` REAL NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `envios` ADD COLUMN `intentos` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        /** Fase de pagos: estado del pago del envío con QR. Los envíos anteriores no lo requieren. */
+        val MIGRACION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `envios` ADD COLUMN `pagoEstado` TEXT NOT NULL DEFAULT 'NO_REQUERIDO'")
+            }
+        }
+
         fun getDB(context: Context): AppDatabase =
             instancia ?: synchronized(this) {
                 instancia ?: Room.databaseBuilder(
@@ -44,6 +67,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "rutalog_cliente.db"
                 )
+                    .addMigrations(MIGRACION_2_3, MIGRACION_3_4)
                     // La versión 1 no tenía los campos de sincronización: se recrea la base.
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()
