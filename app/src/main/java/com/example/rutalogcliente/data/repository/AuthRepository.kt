@@ -29,7 +29,9 @@ sealed interface ResultadoLogin {
 class AuthRepository(
     private val api: ApiService,
     private val db: AppDatabase,
-    private val sesion: SesionSegura
+    private val sesion: SesionSegura,
+    /** Avisa al abrir sesión (true) o al cerrarla (false, con el token que se cierra): registra o borra el push. */
+    private val alCambiarSesion: (iniciada: Boolean, tokenAnterior: String?) -> Unit = { _, _ -> }
 ) {
 
     /** Usuario con sesión activa, o null si hay que iniciar sesión. */
@@ -66,6 +68,7 @@ class AuthRepository(
                         db.usuarioDao().guardar(perfil.aEntidad())
                     }
                     sesion.token = resultado.valor.token
+                    alCambiarSesion(true, null)
                     ResultadoLogin.Exito(perfil.aEntidad().aModelo())
                 }
             }
@@ -83,6 +86,8 @@ class AuthRepository(
 
     /** Cierra la sesión. Los datos locales se conservan por si el mismo usuario vuelve a entrar. */
     fun cerrarSesion() {
+        val anterior = sesion.token
         sesion.cerrar()
+        alCambiarSesion(false, anterior)
     }
 }

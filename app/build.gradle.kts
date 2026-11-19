@@ -49,6 +49,8 @@ dependencies {
     // Inicio con Google: Credential Manager entrega la cuenta y Firebase emite el token que valida la API
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
+    // Notificaciones push en tiempo real: la API avisa cuando el courier avanza el envío
+    implementation(libs.firebase.messaging)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)

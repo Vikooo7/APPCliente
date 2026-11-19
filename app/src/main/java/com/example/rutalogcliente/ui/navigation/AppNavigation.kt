@@ -14,6 +14,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.rutalogcliente.ui.components.LocalEnLinea
@@ -59,9 +60,24 @@ fun AppNavigation(
     envioViewModel: EnvioViewModel,
     syncViewModel: SyncViewModel,
     pagosViewModel: PagosViewModel,
+    /** Guía de una notificación tocada: se abre su seguimiento cuando hay sesión. */
+    guiaAbrir: String? = null,
+    onGuiaAbierta: () -> Unit = {},
     navController: NavHostController = rememberNavController()
 ) {
     val auth by authViewModel.estado.collectAsState()
+
+    // Notificación tocada (push en tiempo real o aviso al sincronizar): abre el detalle de ese envío.
+    // Espera a dejar atrás el splash y el login, que al terminar limpian la pila de pantallas.
+    val pantallaActual = navController.currentBackStackEntryAsState().value?.destination?.route
+    LaunchedEffect(guiaAbrir, auth.usuario?.id, pantallaActual) {
+        val guia = guiaAbrir ?: return@LaunchedEffect
+        if (auth.usuario == null || pantallaActual == null || pantallaActual == Rutas.SPLASH || pantallaActual == Rutas.LOGIN) {
+            return@LaunchedEffect
+        }
+        envioViewModel.buscarPorGuia(guia) { envio -> navController.navigate(Rutas.detalle(envio.id)) }
+        onGuiaAbierta()
+    }
     val sync by syncViewModel.estado.collectAsState()
     val nombreUsuario = auth.usuario?.nombre.orEmpty()
     // Mientras se comprueba la sesión guardada no se expulsa al usuario al Login.

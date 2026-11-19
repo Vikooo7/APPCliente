@@ -26,9 +26,21 @@ import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 import retrofit2.http.Url
+import retrofit2.http.HTTP
+import retrofit2.http.Header
+import com.example.rutalogcliente.data.remote.dto.DispositivoRequest
+import com.example.rutalogcliente.data.remote.dto.DispositivoResponse
 
 /** Endpoints de la API REST de RutaLog (Node.js + Express en Vercel, base de datos en Neon). */
 interface ApiService {
+
+    /** Este celular recibe las notificaciones push del remitente (token de Firebase Cloud Messaging). */
+    @POST("api/dispositivos")
+    suspend fun registrarDispositivo(@Body cuerpo: DispositivoRequest): Response<DispositivoResponse>
+
+    /** Al cerrar sesión: este celular deja de recibir avisos. Lleva la sesión que se está cerrando. */
+    @HTTP(method = "DELETE", path = "api/dispositivos", hasBody = true)
+    suspend fun borrarDispositivo(@Header("Authorization") autorizacion: String, @Body cuerpo: DispositivoRequest): Response<Unit>
 
     @POST("api/auth/login")
     suspend fun login(@Body cuerpo: LoginRequest): Response<LoginResponse>

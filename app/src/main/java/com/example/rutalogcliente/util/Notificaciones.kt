@@ -22,13 +22,21 @@ import com.example.rutalogcliente.model.EstadoEnvio
  */
 object Notificaciones {
 
-    private const val CANAL = "estado_envios"
+    /**
+     * Canal de importancia alta: el aviso aparece en la parte de arriba de la pantalla, en tiempo real.
+     * Es un canal nuevo porque Android no deja subir la importancia de uno que ya existe ("estado_envios").
+     * El mismo id lo usa la API en cada push (src/push.js).
+     */
+    private const val CANAL = "envios_tiempo_real"
+    private const val CANAL_ANTERIOR = "estado_envios"
 
     fun crearCanal(context: Context) {
-        val canal = NotificationChannel(CANAL, "Estado de mis envíos", NotificationManager.IMPORTANCE_DEFAULT).apply {
-            description = "Avisa cuando tu envío es recogido, sale a reparto, se entrega o no se pudo entregar."
+        val canal = NotificationChannel(CANAL, "Estado de mis envíos", NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "Avisa al instante cuando el courier recoge tu envío, sale a reparto, lo entrega o no puede entregarlo."
         }
-        context.getSystemService(NotificationManager::class.java).createNotificationChannel(canal)
+        val gestor = context.getSystemService(NotificationManager::class.java)
+        gestor.createNotificationChannel(canal)
+        gestor.deleteNotificationChannel(CANAL_ANTERIOR)
     }
 
     fun avisarCambios(context: Context, cambios: List<CambioEstado>) {
@@ -36,30 +44,59 @@ object Notificaciones {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             return // sin permiso, los cambios igual se ven en la app
         }
-        val abrirApp = PendingIntent.getActivity(
-            context,
-            0,
-            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
         val gestor = NotificationManagerCompat.from(context)
-        // Una notificación por guía: si el mismo envío vuelve a avanzar, se reemplaza la anterior.
+        // Una notificación por guía (etiqueta = guía): si el mismo envío vuelve a avanzar, o si ya llegó el push
+        // en tiempo real con la misma etiqueta, se reemplaza en vez de duplicarse.
         cambios.forEach { cambio ->
             val aviso = NotificationCompat.Builder(context, CANAL)
                 .setSmallIcon(android.R.drawable.stat_notify_sync)
                 .setContentTitle("${cambio.numeroGuia} · ${titulo(cambio.estado)}")
                 .setContentText(cambio.estado.descripcion)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(cambio.estado.descripcion))
-                .setContentIntent(abrirApp)
+                .setContentIntent(abrirEnvio(context, cambio.numeroGuia))
+                .setOnlyAlertOnce(true)
                 .setAutoCancel(true)
                 .build()
             try {
-                gestor.notify(cambio.numeroGuia.hashCode(), aviso)
+                gestor.notify(cambio.numeroGuia, 0, aviso)
             } catch (e: SecurityException) {
                 // El usuario quitó el permiso justo ahora: no se avisa.
             }
         }
     }
+
+    /** Push en tiempo real recibido con la app abierta (con la app cerrada lo muestra Android, con la misma etiqueta). */
+    fun mostrarPush(context: Context, titulo: String, cuerpo: String, guia: String?) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+        val aviso = NotificationCompat.Builder(context, CANAL)
+            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setContentTitle(titulo)
+            .setContentText(cuerpo)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(cuerpo))
+            .setContentIntent(abrirEnvio(context, guia))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setOnlyAlertOnce(true)
+            .setAutoCancel(true)
+            .build()
+        try {
+            NotificationManagerCompat.from(context).notify(guia ?: "rutalog", 0, aviso)
+        } catch (e: SecurityException) {
+            // permiso retirado: el cambio igual se ve en la app
+        }
+    }
+
+    /** Al tocar la notificación se abre el seguimiento de esa guía (si la hay). */
+    private fun abrirEnvio(context: Context, guia: String?): PendingIntent = PendingIntent.getActivity(
+        context,
+        guia?.hashCode() ?: 0,
+        Intent(context, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            .apply { guia?.let { putExtra(EXTRA_GUIA, it) } },
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+    )
+
+    /** Mismo nombre que el dato "guia" del push: Android lo pone en el Intent al tocar una notificación del sistema. */
+    const val EXTRA_GUIA = "guia"
 
     /** La guía que generó el celular ya existía: el servidor asignó otra. Se avisa para no usar la vieja. */
     fun avisarGuiasCambiadas(context: Context, cambios: List<GuiaCambiada>) {

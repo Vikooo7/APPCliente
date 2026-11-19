@@ -1,6 +1,9 @@
 package com.example.rutalogcliente
 
 import android.Manifest
+import android.content.Intent
+import androidx.compose.runtime.mutableStateOf
+import com.example.rutalogcliente.util.Notificaciones
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -24,6 +27,14 @@ import com.example.rutalogcliente.viewmodel.SyncViewModel
  */
 class MainActivity : ComponentActivity() {
 
+    /** Guía de la notificación que se tocó: se abre su seguimiento (push en tiempo real o aviso al sincronizar). */
+    private val guiaAbrir = mutableStateOf<String?>(null)
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        intent.getStringExtra(Notificaciones.EXTRA_GUIA)?.let { guiaAbrir.value = it }
+    }
+
     /** Al encender la pantalla o volver de otra app (por ejemplo, de pagar en Banco Andino), se revisa la red. */
     override fun onResume() {
         super.onResume()
@@ -37,6 +48,9 @@ class MainActivity : ComponentActivity() {
 
         val contenedor = (application as RutaLogApplication).contenedor
         pedirPermisoDeAvisos()
+        // Si hay sesión, este celular queda registrado para los avisos en tiempo real (el token puede haber cambiado).
+        contenedor.registrarPush()
+        if (savedInstanceState == null) guiaAbrir.value = intent?.getStringExtra(Notificaciones.EXTRA_GUIA)
 
         setContent {
             RutaLogTheme {
@@ -64,7 +78,9 @@ class MainActivity : ComponentActivity() {
                     authViewModel = authViewModel,
                     envioViewModel = envioViewModel,
                     syncViewModel = syncViewModel,
-                    pagosViewModel = pagosViewModel
+                    pagosViewModel = pagosViewModel,
+                    guiaAbrir = guiaAbrir.value,
+                    onGuiaAbierta = { guiaAbrir.value = null }
                 )
             }
         }
